@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OTP Verification | ShopAdmin</title>
+
+  <link rel="stylesheet" href="../assets/style/register.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+</head>
+
+<body>
+  <div class="login-container">
+    <div class="login-header">
+      <div class="logo">
+        <i class="fas fa-key"></i>
+      </div>
+      <h1>Enter Verification Code</h1>
+      <p>A 6-digit code has been sent to your email.</p>
+    </div>
+
+    <div class="login-body">
+      <div class="error-msg" id="errorMsg" style="display: none;">
+        The verification code is incorrect.
+      </div>
+
+      <form onsubmit="handleVerification(event)">
+        <div class="otp-input-group" id="otpGroup">
+          <input type="text" class="otp-input" maxlength="1" required />
+          <input type="text" class="otp-input" maxlength="1" required />
+          <input type="text" class="otp-input" maxlength="1" required />
+          <input type="text" class="otp-input" maxlength="1" required />
+          <input type="text" class="otp-input" maxlength="1" required />
+          <input type="text" class="otp-input" maxlength="1" required />
+        </div>
+
+        <button type="submit" class="btn-login">
+          <i class="fas fa-check"></i> Verify Code
+        </button>
+
+        <div class="options" style="justify-content: center;">
+          <a href="#" id="resendLink">Resend Code</a>
+        </div>
+      </form>
+
+      <div class="footer-text">
+        © 2025 ShopAdmin. All rights reserved.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const otpInputs = document.querySelectorAll('.otp-input');
+    const correctCode = '123456';
+
+    otpInputs.forEach((input, index) => {
+      input.addEventListener('input', () => {
+        if (input.value.length > 1) input.value = input.value.slice(0, 1);
+        if (input.value.length === 1 && index < otpInputs.length - 1) {
+          otpInputs[index + 1].focus();
+        }
+        document.getElementById('errorMsg').style.display = 'none';
+      });
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && input.value.length === 0 && index > 0) {
+          otpInputs[index - 1].focus();
+        }
+      });
+    });
+
+    function handleVerification(e) {
+      e.preventDefault();
+      const enteredCode = Array.from(otpInputs).map(i => i.value).join('');
+
+      if (enteredCode === correctCode) {
+        window.location.href = 'dashboard.html';
+      } else {
+        document.getElementById('errorMsg').style.display = 'block';
+        setTimeout(() => {
+          document.getElementById('errorMsg').style.display = 'none';
+        }, 4000);
+      }
+    }
+  </script>
+</body>
+</html>
