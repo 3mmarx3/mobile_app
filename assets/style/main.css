@@ -639,3 +639,9 @@ input:checked + .slider:before {
     align-items: center;
     gap: 10px;
 }
+
+
+a.btn.btn-custom.btn-primary {
+    background: #6366f1 !important;
+    border-radius: 30px !important;
+}
