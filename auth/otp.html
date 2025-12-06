@@ -1,12 +1,42 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>OTP Verification | ShopAdmin</title>
+  <title>التحقق من الرمز | ShopAdmin</title>
+
+  <!-- Cairo Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="../assets/style/register.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+  <style>
+    body {
+      direction: rtl;
+      text-align: center;
+      font-family: "Cairo", sans-serif;
+    }
+
+    .otp-input-group {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .otp-input {
+      width: 50px;
+      height: 50px;
+      font-size: 22px;
+      text-align: center;
+      direction: ltr;
+    }
+
+    .login-container .form-group i {
+      right: 15px;
+      left: auto;
+    }
+  </style>
 
 </head>
 
@@ -16,13 +46,14 @@
       <div class="logo">
         <i class="fas fa-key"></i>
       </div>
-      <h1>Enter Verification Code</h1>
-      <p>A 6-digit code has been sent to your email.</p>
+      <h1>أدخل رمز التحقق</h1>
+      <p>تم إرسال رمز مكوّن من 6 أرقام إلى بريدك الإلكتروني</p>
     </div>
 
     <div class="login-body">
+      
       <div class="error-msg" id="errorMsg" style="display: none;">
-        The verification code is incorrect.
+        رمز التحقق غير صحيح!
       </div>
 
       <form onsubmit="handleVerification(event)">
@@ -36,16 +67,16 @@
         </div>
 
         <button type="submit" class="btn-login">
-          <i class="fas fa-check"></i> Verify Code
+          <i class="fas fa-check"></i> تحقق من الرمز
         </button>
 
         <div class="options" style="justify-content: center;">
-          <a href="#" id="resendLink">Resend Code</a>
+          <a href="#" id="resendLink">إعادة إرسال الرمز</a>
         </div>
       </form>
 
       <div class="footer-text">
-        © 2025 ShopAdmin. All rights reserved.
+        © 2025 ShopAdmin. جميع الحقوق محفوظة.
       </div>
     </div>
   </div>
@@ -84,5 +115,6 @@
       }
     }
   </script>
+
 </body>
 </html>

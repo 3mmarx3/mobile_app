@@ -215,3 +215,18 @@ body {
 }
 
 
+.form-group {
+    direction: ltr;
+}
+
+
+   body {
+      direction: rtl;
+      text-align: right;
+      font-family: "Cairo", sans-serif;
+    }
+
+    .login-container .form-group i {
+      left: auto;
+      right: 15px;
+    }

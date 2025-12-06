@@ -1,11 +1,16 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Admin Signup | ShopAdmin</title>
+  <title>إنشاء حساب مشرف | ShopAdmin</title>
+
+  <!-- Cairo Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+
   <link rel="stylesheet" href="../assets/style/register.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
 </head>
 <body>
   <div class="login-container">
@@ -13,18 +18,20 @@
       <div class="logo">
         <i class="fas fa-user-plus"></i>
       </div>
-      <h1>Create Admin Account</h1>
-      <p>Fill in the details to register your account</p>
+      <h1>إنشاء حساب مشرف</h1>
+      <p>أدخل البيانات لتسجيل حساب جديد</p>
     </div>
+
     <div class="login-body">
-      <div class="error-msg" id="errorMsg">Please ensure all fields are valid.</div>
-      <div class="success-msg" id="successMsg">Account created successfully! Redirecting to login...</div>
+      
+      <div class="error-msg" id="errorMsg">يرجى التأكد من صحة البيانات.</div>
+      <div class="success-msg" id="successMsg">تم إنشاء الحساب بنجاح! جاري تحويلك لصفحة تسجيل الدخول...</div>
 
       <form onsubmit="handleSignup(event)">
         
         <div class="form-group">
           <i class="fas fa-user"></i>
-          <input type="text" class="form-control" placeholder="Full Name" required />
+          <input type="text" class="form-control" placeholder="الاسم بالكامل" required />
         </div>
 
         <div class="form-group">
@@ -34,24 +41,25 @@
 
         <div class="form-group">
           <i class="fas fa-lock"></i>
-          <input type="password" id="password" class="form-control" placeholder="Choose a password" required />
+          <input type="password" id="password" class="form-control" placeholder="اختر كلمة المرور" required />
           <i class="fas fa-eye password-toggle" id="togglePassword" onclick="togglePass()"></i>
         </div>
 
-
-
+  
+        
 
         <button type="submit" class="btn-login">
-          <i class="fas fa-user-plus"></i> Sign Up
+          <i class="fas fa-user-plus"></i> تسجيل حساب
         </button>
 
-        <div class="options" style="justify-content: center;">
-            <p>Already have an account? <a href="./login.html">log In</a></p>
+        <div class="options" style="justify-content:center;">
+          <p>لديك حساب بالفعل؟ <a href="./login.html">تسجيل الدخول</a></p>
         </div>
+
       </form>
 
       <div class="footer-text">
-        © 2025 ShopAdmin. All rights reserved.
+        © 2025 ShopAdmin. جميع الحقوق محفوظة.
       </div>
     </div>
   </div>
@@ -60,18 +68,14 @@
     function togglePass() {
       const password = document.getElementById('password');
       const icon = document.getElementById('togglePassword');
-      if (password.type === 'password') {
-        password.type = 'text';
-        icon.classList.replace('fa-eye', 'fa-eye-slash');
-      } else {
-        password.type = 'password';
-        icon.classList.replace('fa-eye-slash', 'fa-eye');
-      }
+      password.type = password.type === 'password' ? 'text' : 'password';
+      icon.classList.toggle('fa-eye-slash');
+      icon.classList.toggle('fa-eye');
     }
 
     function handleSignup(e) {
       e.preventDefault();
-      
+
       const fullName = e.target.querySelector('input[type="text"]').value;
       const email = e.target.querySelector('input[type="email"]').value;
       const password = document.getElementById('password').value;
@@ -80,21 +84,18 @@
       document.getElementById('errorMsg').style.display = 'none';
       document.getElementById('successMsg').style.display = 'none';
 
-
       if (password !== confirmPassword) {
-        document.getElementById('errorMsg').textContent = 'Passwords do not match.';
+        document.getElementById('errorMsg').textContent = 'كلمتا المرور غير متطابقتين!';
         document.getElementById('errorMsg').style.display = 'block';
         return;
       }
-      
-      console.log('Attempting to register new admin:', { fullName, email, password });
-      
-      document.getElementById('successMsg').textContent = `Account for ${fullName} registered successfully!`;
+
+      document.getElementById('successMsg').textContent =
+        `تم تسجيل الحساب بنجاح يا ${fullName}!`;
       document.getElementById('successMsg').style.display = 'block';
 
-
       setTimeout(() => {
-        window.location.href = 'login.html';  
+        window.location.href = 'login.html';
       }, 3000);
     }
 
@@ -104,5 +105,6 @@
       });
     });
   </script>
+
 </body>
 </html>
