@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>شوب أدمن - الطلبات والمستخدمين</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../style/style.css">
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="logo"> القمه للتجاره والتوزيع</div>
+        
+        <a href="#" data-page="dashboard">
+            <i class="fas fa-tachometer-alt"></i> لوحة التحكم
+        </a>
+        <a href="#" data-page="products">
+            <i class="fas fa-box-open"></i> المنتجات
+        </a>
+        <a href="#" data-page="categories">
+            <i class="fas fa-folder-open"></i> الفئات
+        </a>
+        <a href="#" class="active" data-page="orders">
+            <i class="fas fa-shopping-cart"></i> الطلبات
+        </a>
+        <a href="#" data-page="users">
+            <i class="fas fa-users"></i> المستخدمين
+        </a>
+        
+        <hr style="margin: 2rem 1.5rem; border-color: #334155" />
+        
+        <a href="#" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
+        </a>
+    </div>
+
+    <div class="main-content">
+        <div class="header d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h2 class="mb-0" id="page-title">إدارة الطلبات</h2>
+            </div>
+            <div class="user-info">
+                <span>مرحباً، <strong>المشرف العام</strong></span>
+                <img src="https://ui-avatars.com/api/?name=المشرف+العام&background=6366f1&color=fff" alt="المشرف">
+            </div>
+        </div>
+
+        <div id="page-container">
+        
+            <div id="orders" class="page active">
+                <div class="container-fluid">
+                    <div class="d-flex justify-content-between align-items-center mb-4 page-header">
+                        <h2 class="mb-0">جميع الطلبات (1,284)</h2>
+                    </div>
+
+                    <div class="card-custom">
+                        <div class="table-responsive table-responsive-custom">
+                            <table class="table table-custom">
+                                <thead>
+                                    <tr>
+                                        <th><input type="checkbox" id="selectAllOrders"></th>
+                                        <th>رقم الطلب</th>
+                                        <th>العميل</th>
+                                        <th>التاريخ</th>
+                                        <th>العناصر</th>
+                                        <th>الإجمالي</th>
+                                        <th>الحالة</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><input type="checkbox" class="row-check"></td>
+                                        <td><strong>#1001</strong></td>
+                                        <td>أحمد محمد</td>
+                                        <td>2025-12-06 14:30</td>
+                                        <td>2 عنصر</td>
+                                        <td><strong>$1,299.00</strong></td>
+                                        <td>
+                                            <select class="status-select" onchange="updateOrderStatus(this,'#1001')">
+                                                <option value="pending" selected>قيد الانتظار</option>
+                                                <option value="processing">قيد المعالجة</option>
+                                                <option value="shipped">تم الشحن</option>
+                                                <option value="delivered">تم التسليم</option>
+                                                <option value="canceled">ملغي</option>
+                                            </select>
+                                        </td>
+                                        <td style="cursor: pointer;" onclick="openOrderModal('#1001','أحمد محمد','2025-12-06','$1,299.00','pending')">
+عرض التفاصيل
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal modal-custom fade" id="orderModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">تفاصيل الطلب - <span id="modalOrderId">#1001</span></h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="row mb-4 order-summary">
+                                    <div class="col-md-6">
+                                        <h5>العميل</h5>
+                                        <p>
+                                            <strong id="modalCustomer">أحمد محمد</strong><br>
+                                            ahmed@example.com<br>
+                                            +20 111 222 3334
+                                        </p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h5>عنوان الشحن</h5>
+                                        <p>123 الشارع، القاهرة، مصر</p>
+                                    </div>
+                                </div>
+
+                                <h5>عناصر الطلب</h5>
+                                    <table class="table table-striped table-custom mt-3">
+                                        <thead>
+                                            <tr>
+                                                <th>المنتج</th>
+                                                <th>الكمية</th>
+                                                <th>السعر</th>
+                                                <th>الإجمالي</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>هاتف ذكي X Pro</td>
+                                                <td>1</td>
+                                                <td>$1,199.00</td>
+                                                <td>$1,199.00</td>
+                                            </tr>
+                                            <tr>
+                                                <td>سماعات بلوتوث</td>
+                                                <td>1</td>
+                                                <td>$100.00</td>
+                                                <td>$100.00</td>
+                                            </tr>
+                                        </tbody>
+                                        <tfoot>
+                                            <tr>
+                                                <td colspan="3" class="text-end"><strong>الإجمالي الفرعي</strong></td>
+                                                <td>$1,299.00</td>
+                                            </tr>
+                                            <tr>
+                                                <td colspan="3" class="text-end"><strong>الشحن</strong></td>
+                                                <td>$0.00</td>
+                                            </tr>
+                                            <tr>
+                                                <td colspan="3" class="text-end"><strong>الإجمالي</strong></td>
+                                                <td><strong style="color:#059669">$1,299.00</strong></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+
+                                <div class="d-flex justify-content-end gap-2 mt-4">
+                                    <button class="btn btn-custom btn-success">طباعة الفاتورة</button>
+                                    <button class="btn btn-custom btn-primary">إرسال التتبع</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="users" class="page">
+                <div class="container-fluid">
+                    <div class="d-flex justify-content-between align-items-center mb-4 page-header">
+                        <h2 class="mb-0">جميع المستخدمين (8,429)</h2>
+                    </div>
+
+                    <div class="card-custom">
+                        <div class="table-responsive table-responsive-custom">
+                            <table class="table table-custom">
+                                <thead>
+                                    <tr>
+                                        <th>المستخدم</th>
+                                        <th>البريد</th>
+                                        <th>الهاتف</th>
+                                        <th>الطلبات</th>
+                                        <th>تاريخ الانضمام</th>
+                                        <th>الحالة</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <img src="https://ui-avatars.com/api/?name=أحمد+محمد&background=6366f1&color=fff" class="user-avatar">
+                                            <strong>أحمد محمد</strong>
+                                        </td>
+                                        <td>ahmed@example.com</td>
+                                        <td>+20 111 222 3334</td>
+                                        <td>24 طلب</td>
+                                        <td>2024-03-15</td>
+                                        <td><span class="badge badge-custom active">نشط</span></td>
+                                        <td>
+                                            <label class="switch me-2">
+                                                <input type="checkbox" checked onchange="toggleUser(this,'أحمد')">
+                                                <span class="slider"></span>
+                                            </label>
+
+                                            <span style="cursor: pointer;" onclick="openUserModal('أحمد محمد','ahmed@example.com','+201112223334','24','2024-03-15','القاهرة',true)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eye" viewBox="0 0 16 16">
+                                                  <path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/>
+                                                  <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>
+                                                </svg> 
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal modal-custom fade" id="userModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">الملف الشخصي</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center">
+                                <img id="modalAvatar" src="" class="user-avatar mb-3" style="width:120px;height:120px;">
+                                <h4 id="modalName" class="mb-3">أحمد محمد</h4>
+                                <p class="mb-1"><strong>البريد:</strong> <span id="modalEmail"></span></p>
+                                <p class="mb-4"><strong>الهاتف:</strong> <span id="modalPhone"></span></p>
+
+                                <div class="row mb-4 user-info-grid">
+                                    <div class="col-6 col-md-4 mb-3">
+                                        <p class="mb-1"><strong>إجمالي الطلبات</strong></p>
+                                        <h4 id="modalOrders" class="text-primary"></h4>
+                                    </div>
+                                    <div class="col-6 col-md-4 mb-3 d-none">
+                                        <p class="mb-1"><strong>عضو منذ</strong></p>
+                                        <h5 id="modalJoined" class="text-primary"></h5>
+                                    </div>
+                                    <div class="col-6 col-md-4 mb-3">
+                                        <p class="mb-1"><strong>الموقع</strong></p>
+                                        <span id="modalLocation"></span>
+                                    </div>
+                                    <div class="col-6 col-md-3 mb-3">
+                                        <p class="mb-1"><strong>الحالة</strong></p>
+                                        <span id="modalStatus" class="badge badge-custom active"></span>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-center gap-2">
+                                    <button class="btn btn-custom btn-danger" onclick="if(confirm('حظر المستخدم؟')) alert('تم الحظر!')">حظر المستخدم</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        function saveToLocalStorage(key, data) {
+            localStorage.setItem(key, JSON.stringify(data));
+        }
+
+        function getFromLocalStorage(key) {
+            const data = localStorage.getItem(key);
+            return data ? JSON.parse(data) : null;
+        }
+
+        const orderModal = new bootstrap.Modal(document.getElementById('orderModal'));
+        const userModal = new bootstrap.Modal(document.getElementById('userModal'));
+        
+        const pages = {
+            orders: document.getElementById('orders'),
+            users: document.getElementById('users')
+        };
+
+        document.querySelectorAll('.sidebar a[data-page]').forEach(link => {
+            link.addEventListener('click', e => {
+                e.preventDefault();
+                const page = link.dataset.page;
+
+                if (pages[page]) {
+                    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                    pages[page].classList.add('active');
+                }
+                
+                document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+                link.classList.add('active');
+
+                document.getElementById('page-title').textContent = {
+                    dashboard: "نظرة عامة على لوحة التحكم",
+                    products: "إدارة المنتجات",
+                    categories: "إدارة الفئات",
+                    orders: "إدارة الطلبات",
+                    users: "إدارة المستخدمين"
+                }[page] || "لوحة التحكم";
+
+                if (window.innerWidth < 992) {
+                    document.getElementById('sidebar').classList.remove('active');
+                }
+            });
+        });
+
+        document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.toggle('active');
+        });
+
+        document.addEventListener('click', (e) => {
+            const sidebar = document.getElementById('sidebar');
+            const mobileBtn = document.getElementById('mobileMenuBtn');
+
+            if (window.innerWidth < 992 && 
+                sidebar.classList.contains('active') && 
+                !sidebar.contains(e.target) && 
+                e.target !== mobileBtn && 
+                !mobileBtn.contains(e.target)) {
+                sidebar.classList.remove('active');
+            }
+        });
+
+        function logout() {
+            if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
+                localStorage.removeItem('adminLoggedIn');
+                window.location.href = './auth/login.html';
+            }
+            return false;
+        }
+
+        function updateOrderStatus(select, id) {
+            const status = select.value;
+            alert(`تم تحديث حالة الطلب ${id} إلى: ${status}`);
+        }
+
+        function openOrderModal(id, cust, date, total, status) {
+            document.getElementById('modalOrderId').textContent = id;
+            document.getElementById('modalCustomer').textContent = cust;
+            orderModal.show();
+        }
+
+        function toggleUser(checkbox, name) {
+            alert(`المستخدم ${name} أصبح ${checkbox.checked ? 'نشط' : 'غير نشط'}`);
+        }
+
+        function openUserModal(name, email, phone, orders, joined, location, active) {
+            document.getElementById('modalAvatar').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${active?'6366f1':'ef4444'}&color=fff`;
+            document.getElementById('modalName').textContent = name;
+            document.getElementById('modalEmail').textContent = email;
+            document.getElementById('modalPhone').textContent = phone;
+            document.getElementById('modalOrders').textContent = orders;
+            document.getElementById('modalJoined').textContent = joined;
+            document.getElementById('modalLocation').textContent = location;
+
+            const st = document.getElementById('modalStatus');
+            st.textContent = active ? 'نشط' : 'غير نشط';
+            st.className = 'badge badge-custom ' + (active ? 'active' : 'inactive');
+
+            userModal.show();
+        }
+
+        document.getElementById('selectAllOrders')?.addEventListener('click', (e) => {
+            const isChecked = e.target.checked;
+            document.querySelectorAll('#orders .row-check').forEach(cb => cb.checked = isChecked);
+        });
+
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 992) {
+                document.getElementById('sidebar').classList.remove('active');
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const isLoggedIn = getFromLocalStorage('adminLoggedIn');
+            if (!isLoggedIn && window.location.pathname.includes('dashboard')) {
+                window.location.href = './login.html';
+            }
+        });
+    </script>
+</body>
+</html>

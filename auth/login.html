@@ -1,100 +1,178 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>تسجيل دخول المشرف | ShopAdmin</title>
+  <head>
+     
+    <meta charset="UTF-8" />
+     
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     
+    <title>تسجيل دخول المشرف | ShopAdmin</title>
 
-  <!-- Cairo Font -->
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+     
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap"
+      rel="stylesheet"
+    />
+     
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+     
+    <link rel="stylesheet" href="../assets/style/register.css" />
 
-  <link rel="stylesheet" href="../assets/style/register.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
-
-
-
-</head>
-<body>
-
-  <div class="login-container">
-    <div class="login-header">
-      <div class="logo">
-        <i class="fas fa-shield-alt"></i>
+     
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+     
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+     
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics-compat.js"></script>
+  </head>
+  <body>
+     
+    <div class="login-container">
+         
+      <div class="login-header">
+             
+        <div class="logo">        <i class="fas fa-shield-alt"></i>      </div>
+             
+        <h1>لوحة التحكم</h1>
+             
+        <p>تسجيل دخول المشرف</p>
+           
       </div>
-      <h1>لوحة التحكم</h1>
-      <p>تسجيل دخول المشرف</p>
+
+         
+      <div class="login-body">
+             
+        <div class="error-msg" id="errorMsg" style="display: none">
+          البريد الإلكتروني أو كلمة المرور غير صحيحة!
+        </div>
+
+             
+        <form onsubmit="handleLogin(event)">
+                 
+          <div class="form-group">
+                      <i class="fas fa-envelope"></i>          
+            <input
+              type="email"
+              id="email"
+              class="form-control"
+              placeholder="admin@example.com"
+              required
+            />
+                   
+          </div>
+
+                 
+          <div class="form-group">
+                      <i class="fas fa-lock"></i>          
+            <input
+              type="password"
+              id="password"
+              class="form-control"
+              placeholder="أدخل كلمة المرور"
+              required
+            />
+                     
+            <i
+              class="fas fa-eye password-toggle"
+              id="togglePassword"
+              onclick="togglePass()"
+            ></i>
+                   
+          </div>
+
+                 
+          <div class="options">
+                      <label><input type="checkbox" /> تذكرني</label>        
+          </div>
+
+                 
+          <button type="submit" class="btn-login">
+                      <i class="fas fa-sign-in-alt"></i> تسجيل الدخول        
+          </button>
+
+                 
+          <div class="options" style="justify-content: center">
+                     
+            <p>ليس لديك حساب؟ <a href="./signup.html">إنشاء حساب</a></p>
+                   
+          </div>
+               
+        </form>
+
+             
+        <div class="footer-text">
+                  © 2025 ShopAdmin. جميع الحقوق محفوظة.      
+        </div>
+           
+      </div>
+       
     </div>
 
-    <div class="login-body">
-      <div class="error-msg" id="errorMsg">البريد الإلكتروني أو كلمة المرور غير صحيحة!</div>
+    <script>
+      const firebaseConfig = {
+        apiKey: "AIzaSyDlKhp5gKE6l5BFBOBcLv6JZB3xIOnwqDo",
+        authDomain: "shop-732bb.firebaseapp.com",
+        databaseURL:
+          "https://shop-732bb-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "shop-732bb",
+        storageBucket: "shop-732bb.firebasestorage.app",
+        messagingSenderId: "650792166626",
+        appId: "1:650792166626:web:4ae7de7821542520096abb",
+        measurementId: "G-S6TSEZ4FVW",
+      };
 
-      <form onsubmit="handleLogin(event)">
-        <div class="form-group">
-          <i class="fas fa-envelope"></i>
-          <input type="email" class="form-control" placeholder="admin@example.com" required />
-        </div>
+      const app = firebase.initializeApp(firebaseConfig);
+      firebase.analytics();
+      const auth = firebase.auth();
 
-        <div class="form-group">
-          <i class="fas fa-lock"></i>
-          <input type="password" id="password" class="form-control" placeholder="أدخل كلمة المرور" required />
-          <i class="fas fa-eye password-toggle" id="togglePassword" onclick="togglePass()"></i>
-        </div>
-
-        <div class="options">
-          <label><input type="checkbox"> تذكرني</label>
-        </div>
-
-        <button type="submit" class="btn-login">
-          <i class="fas fa-sign-in-alt"></i> تسجيل الدخول
-        </button>
-
-        <div class="options" style="justify-content: center;">
-          <p>ليس لديك حساب؟ <a href="./signup.html">إنشاء حساب</a></p>
-        </div>
-      </form>
-
-      <div class="footer-text">
-        © 2025 ShopAdmin. جميع الحقوق محفوظة.
-      </div>
-    </div>
-  </div>
-
-  <script>
-    function togglePass() {
-      const password = document.getElementById('password');
-      const icon = document.getElementById('togglePassword');
-      if (password.type === 'password') {
-        password.type = 'text';
-        icon.classList.replace('fa-eye', 'fa-eye-slash');
-      } else {
-        password.type = 'password';
-        icon.classList.replace('fa-eye-slash', 'fa-eye');
+      function togglePass() {
+        const password = document.getElementById("password");
+        const icon = document.getElementById("togglePassword");
+        if (password.type === "password") {
+          password.type = "text";
+          icon.classList.replace("fa-eye", "fa-eye-slash");
+        } else {
+          password.type = "password";
+          icon.classList.replace("fa-eye-slash", "fa-eye");
+        }
       }
-    }
 
-    function handleLogin(e) {
-      e.preventDefault();
-      
-      const email = e.target.querySelector('input[type="email"]').value;
-      const password = e.target.querySelector('input[type="password"]').value;
+      async function handleLogin(e) {
+        e.preventDefault();
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
 
-      if (email === 'admin@shop.com' && password === '123456') {
-        alert('مرحباً بك أيها المشرف!');
-        window.location.href = 'index.html';
-      } else {
-        document.getElementById('errorMsg').style.display = 'block';
-        setTimeout(() => {
-          document.getElementById('errorMsg').style.display = 'none';
-        }, 4000);
+        document.getElementById("errorMsg").style.display = "none";
+
+        try {
+          const userCredential = await auth.signInWithEmailAndPassword(
+            email,
+            password
+          );
+
+          console.log("Login successful:", userCredential.user);
+          alert("مرحباً بك أيها المشرف! تم الدخول بنجاح.");
+          window.location.href = "../index.html";
+        } catch (error) {
+          console.error("Firebase Login Error:", error.code, error.message);
+          document.getElementById("errorMsg").textContent =
+            "البريد الإلكتروني أو كلمة المرور غير صحيحة!";
+          document.getElementById("errorMsg").style.display = "block";
+
+          setTimeout(() => {
+            document.getElementById("errorMsg").style.display = "none";
+          }, 4000);
+        }
       }
-    }
 
-    document.querySelectorAll('input').forEach(input => {
-      input.addEventListener('input', () => {
-        document.getElementById('errorMsg').style.display = 'none';
+      document.querySelectorAll("input").forEach((input) => {
+        input.addEventListener("input", () => {
+          document.getElementById("errorMsg").style.display = "none";
+        });
       });
-    });
-  </script>
-
-</body>
+    </script>
+  </body>
 </html>
