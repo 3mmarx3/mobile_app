@@ -33,7 +33,7 @@
             <div id="orders" class="page active">
                 <div class="container-fluid">
                     <div class="d-flex justify-content-between align-items-center mb-4 page-header">
-                        <h2 class="mb-0">جميع الطلبات (1,284)</h2>
+                        <h2 class="mb-0">جميع الطلبات (<span id="ordersCount">0</span>)</h2>
                     </div>
 
                     <div class="card-custom">
@@ -51,29 +51,11 @@
                                         <th>الإجراءات</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <tr>
-                                        <td><input type="checkbox" class="row-check"></td>
-                                        <td><strong>#1001</strong></td>
-                                        <td>أحمد محمد</td>
-                                        <td>2025-12-06 14:30</td>
-                                        <td>2 عنصر</td>
-                                        <td><strong>$1,299.00</strong></td>
-                                        <td>
-                                            <select class="status-select" onchange="updateOrderStatus(this,'#1001')">
-                                                <option value="pending" selected>قيد الانتظار</option>
-                                                <option value="processing">قيد المعالجة</option>
-                                                <option value="shipped">تم الشحن</option>
-                                                <option value="delivered">تم التسليم</option>
-                                                <option value="canceled">ملغي</option>
-                                            </select>
-                                        </td>
-                                        <td style="cursor: pointer;" onclick="openOrderModal('#1001','أحمد محمد','2025-12-06','$1,299.00','pending')">
-عرض التفاصيل
-                                        </td>
-                                    </tr>
+                                <tbody id="ordersTableBody">
+                                    <tr><td colspan="8" class="text-center">جارِ تحميل الطلبات...</td></tr>
                                 </tbody>
                             </table>
+                            <div id="noOrdersMessage" class="text-center p-3" style="display: none;">لا توجد طلبات حاليًا.</div>
                         </div>
                     </div>
                 </div>
@@ -82,7 +64,7 @@
                     <div class="modal-dialog modal-lg">
                         <div class="modal-content">
                             <div class="modal-header">
-                                <h5 class="modal-title">تفاصيل الطلب - <span id="modalOrderId">#1001</span></h5>
+                                <h5 class="modal-title">تفاصيل الطلب - <span id="modalOrderId"></span></h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
@@ -90,14 +72,14 @@
                                     <div class="col-md-6">
                                         <h5>العميل</h5>
                                         <p>
-                                            <strong id="modalCustomer">أحمد محمد</strong><br>
-                                            ahmed@example.com<br>
-                                            +20 111 222 3334
+                                            <strong id="modalCustomerName"></strong><br>
+                                            <span id="modalCustomerEmail"></span><br>
+                                            <span id="modalCustomerPhone"></span>
                                         </p>
                                     </div>
                                     <div class="col-md-6">
                                         <h5>عنوان الشحن</h5>
-                                        <p>123 الشارع، القاهرة، مصر</p>
+                                        <p><span id="modalShippingAddress"></span></p>
                                     </div>
                                 </div>
 
@@ -111,39 +93,29 @@
                                                 <th>الإجمالي</th>
                                             </tr>
                                         </thead>
-                                        <tbody>
+                                        <tbody id="modalOrderItemsBody">
                                             <tr>
-                                                <td>هاتف ذكي X Pro</td>
-                                                <td>1</td>
-                                                <td>$1,199.00</td>
-                                                <td>$1,199.00</td>
-                                            </tr>
-                                            <tr>
-                                                <td>سماعات بلوتوث</td>
-                                                <td>1</td>
-                                                <td>$100.00</td>
-                                                <td>$100.00</td>
+                                                <td colspan="4" class="text-center">لا توجد تفاصيل متاحة حاليًا.</td>
                                             </tr>
                                         </tbody>
                                         <tfoot>
                                             <tr>
                                                 <td colspan="3" class="text-end"><strong>الإجمالي الفرعي</strong></td>
-                                                <td>$1,299.00</td>
+                                                <td id="modalSubtotal">0.00 ج.م</td>
                                             </tr>
-                                            <tr>
-                                                <td colspan="3" class="text-end"><strong>الشحن</strong></td>
-                                                <td>$0.00</td>
-                                            </tr>
+                                         
                                             <tr>
                                                 <td colspan="3" class="text-end"><strong>الإجمالي</strong></td>
-                                                <td><strong style="color:#059669">$1,299.00</strong></td>
+                                                <td><strong id="modalTotal" style="color:#059669">0.00 ج.م</strong></td>
                                             </tr>
                                         </tfoot>
                                     </table>
 
-                                <div class="d-flex justify-content-end gap-2 mt-4">
-                                    <button class="btn btn-custom btn-success">طباعة الفاتورة</button>
-                                    <button class="btn btn-custom btn-primary">إرسال التتبع</button>
+                                <div class="d-flex justify-content-between align-items-center mt-4">
+                                    <div class="d-flex gap-2">
+                                    <button class="btn btn-custom btn-danger" id="deleteOrderBtn">حذف الطلب</button>
+
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -154,7 +126,7 @@
             <div id="users" class="page">
                 <div class="container-fluid">
                     <div class="d-flex justify-content-between align-items-center mb-4 page-header">
-                        <h2 class="mb-0">جميع المستخدمين (8,429)</h2>
+                        <h2 class="mb-0">جميع المستخدمين</h2>
                     </div>
 
                     <div class="card-custom">
@@ -247,6 +219,278 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../app/header.js"></script>
+    
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
+    import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyDlKhp5gKE6l5BFBOBcLv6JZB3xIOnwqDo",
+        authDomain: "shop-732bb.firebaseapp.com",
+        projectId: "shop-732bb",
+        storageBucket: "shop-732bb.firebasestorage.app",
+        messagingSenderId: "650792166626",
+        appId: "1:650792166626:web:4ae7de7821542520096abb"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const ordersColRef = collection(db, 'orders');
+    const usersColRef = collection(db, 'users');
+
+    const ordersTableBody = document.getElementById('ordersTableBody');
+    const ordersCountElement = document.getElementById('ordersCount');
+    const noOrdersMessage = document.getElementById('noOrdersMessage');
+    const orderModal = new bootstrap.Modal(document.getElementById('orderModal'));
+
+    let allOrders = [];
+    let usersMap = {};
+    let currentOrderId = null;
+
+    function formatStatus(status) {
+        switch (status) {
+            case 'pending': return 'قيد الانتظار';
+            case 'PROCESSING': 
+            case 'processing': return 'قيد المعالجة';
+            case 'SHIPPED':
+            case 'shipped': return 'تم الشحن';
+            case 'DELIVERED':
+            case 'delivered': return 'تم التسليم';
+            case 'CANCELLED':
+            case 'canceled': return 'ملغي';
+            default: return status;
+        }
+    }
+
+    function createStatusSelect(orderId, currentStatus) {
+        const normalizedStatus = currentStatus ? currentStatus.toLowerCase() : 'processing';
+        const statuses = ['processing', 'shipped', 'delivered', 'cancelled'];
+        
+        let options = statuses.map(status => {
+            const label = formatStatus(status);
+            const selected = status === normalizedStatus ? 'selected' : '';
+            return `<option value="${status.toUpperCase()}" ${selected}>${label}</option>`;
+        }).join('');
+
+        return `<select class="status-select" onchange="updateOrderStatus('${orderId}', this.value)">${options}</select>`;
+    }
+
+    function formatDateAndTime(order) {
+        if (order.date) return order.date;
+
+        let timestamp = order.Date || order.Time || order.timestamp;
+        
+        if (typeof timestamp === 'object' && timestamp !== null && 'seconds' in timestamp) {
+            timestamp = timestamp.seconds * 1000;
+        }
+
+        if (timestamp) {
+            const d = new Date(timestamp);
+            if (!isNaN(d)) {
+                const datePart = d.toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
+                const timePart = d.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+                return `${datePart} ${timePart}`;
+            }
+        }
+        return 'غير متوفر';
+    }
+
+    function getOrderNumber(order) {
+        return `#${order.number || order.id.substring(0, 8)}`;
+    }
+
+    function getUserName(userId) {
+        if (usersMap[userId] && usersMap[userId].name) {
+            return usersMap[userId].name;
+        }
+        return 'غير متوفر';
+    }
+
+    function getUserEmail(userId) {
+        if (usersMap[userId] && usersMap[userId].email) {
+            return usersMap[userId].email;
+        }
+        return 'غير متوفر';
+    }
+
+    function getUserPhone(userId) {
+        if (usersMap[userId] && usersMap[userId].phone) {
+            return usersMap[userId].phone;
+        }
+        return 'غير متوفر';
+    }
+
+    function renderOrdersTable(orders) {
+        ordersTableBody.innerHTML = '';
+        allOrders = orders;
+        ordersCountElement.textContent = orders.length;
+
+        if (orders.length === 0) {
+            ordersTableBody.innerHTML = '';
+            noOrdersMessage.style.display = 'block';
+            return;
+        }
+        
+        noOrdersMessage.style.display = 'none';
+
+        orders.forEach(order => {
+            const dateAndTime = formatDateAndTime(order);
+            const orderNumber = getOrderNumber(order);
+            
+            const itemsList = order.items || order.state || [];
+            const itemsCount = order.itemsCount || itemsList.length || 0;
+            
+            const total = order.totalPrice || order.Total || 0;
+            
+            const userId = order.userId || order.uId || order.uid || order.customerId;
+            const userName = getUserName(userId) || order.userName || order.UserName || order.name || 'غير متوفر';
+
+            const row = `
+                <tr>
+                    <td><input type="checkbox" class="row-check"></td>
+                    <td><strong>${orderNumber}</strong></td>
+                    <td>${userName}</td>
+                    <td>${dateAndTime}</td>
+                    <td>${itemsCount} عنصر</td>
+                    <td><strong>${Number(total).toFixed(2)} ج.م</strong></td>
+                    <td>
+                        ${createStatusSelect(order.id, order.status)}
+                    </td>
+                    <td style="cursor: pointer;" onclick="openOrderModal('${order.id}')">
+                        عرض التفاصيل
+                    </td>
+                </tr>
+            `;
+            ordersTableBody.insertAdjacentHTML('beforeend', row);
+        });
+    }
+
+    function loadUsers() {
+        onSnapshot(usersColRef, (snapshot) => {
+            snapshot.docs.forEach(doc => {
+                usersMap[doc.id] = doc.data();
+            });
+            
+            if (allOrders.length > 0) {
+                renderOrdersTable(allOrders);
+            }
+        });
+    }
+
+    function loadOrders() {
+        onSnapshot(ordersColRef, (snapshot) => {
+            const ordersList = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            renderOrdersTable(ordersList);
+        }, (error) => {
+            ordersTableBody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">خطأ في الاتصال بقاعدة البيانات.</td></tr>`;
+            noOrdersMessage.style.display = 'none';
+        });
+    }
+
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            loadUsers();
+            loadOrders();
+        } else {
+            loadUsers();
+            loadOrders(); 
+        }
+    });
+
+    window.updateOrderStatus = async (orderId, newStatus) => {
+        try {
+            const orderRef = doc(db, 'orders', orderId);
+            await updateDoc(orderRef, {
+                status: newStatus
+            });
+            alert(`تم تحديث حالة الطلب إلى: ${formatStatus(newStatus)}`);
+        } catch (error) {
+            alert("حدث خطأ أثناء تحديث حالة الطلب.");
+        }
+    };
+
+    window.deleteCurrentOrder = async () => {
+        if (!currentOrderId) return;
+        if (!confirm('هل أنت متأكد من حذف هذا الطلب نهائياً؟ هذا الإجراء لا يمكن التراجع عنه.')) return;
+
+        try {
+            const orderRef = doc(db, 'orders', currentOrderId);
+            await deleteDoc(orderRef);
+            alert('تم حذف الطلب بنجاح.');
+            orderModal.hide();
+        } catch (error) {
+            alert('حدث خطأ أثناء حذف الطلب.');
+        }
+    };
+
+    window.openOrderModal = (orderId) => {
+        const order = allOrders.find(o => o.id === orderId);
+
+        if (!order) {
+            alert('لم يتم العثور على تفاصيل الطلب.');
+            return;
+        }
+
+        currentOrderId = orderId;
+
+        const userId = order.userId || order.uId || order.uid || order.customerId;
+        
+        document.getElementById('modalOrderId').textContent = getOrderNumber(order);
+        
+        document.getElementById('modalCustomerName').textContent = getUserName(userId) || order.userName || order.UserName || order.name || 'غير متوفر';
+        document.getElementById('modalCustomerEmail').textContent = getUserEmail(userId) || order.email || 'غير متوفر';
+        document.getElementById('modalCustomerPhone').textContent = getUserPhone(userId) || order.phone || 'غير متوفر';
+        
+        document.getElementById('modalShippingAddress').textContent = order.address || order.shippingAddress || order.Address || 'غير متوفر';
+
+        const items = order.items || order.state || [];
+        
+        const itemsBody = document.getElementById('modalOrderItemsBody');
+        itemsBody.innerHTML = '';
+        
+        if (items.length > 0) {
+            let runningSubtotal = 0;
+            items.forEach(item => {
+                const quantity = item.count || item.Count || 1;
+                const price = item.price || item.Total || 0;
+                const itemName = item.name || 'منتج غير معروف';
+                
+                const itemTotal = quantity * price;
+                runningSubtotal += itemTotal;
+                
+                const row = `
+                    <tr>
+                        <td>${itemName}</td>
+                        <td>${quantity}</td>
+                        <td>${Number(price).toFixed(2)} ج.م</td>
+                        <td>${itemTotal.toFixed(2)} ج.م</td>
+                    </tr>
+                `;
+                itemsBody.insertAdjacentHTML('beforeend', row);
+            });
+            
+            const finalTotal = order.totalPrice || runningSubtotal;
+
+            document.getElementById('modalSubtotal').textContent = `${Number(finalTotal).toFixed(2)} ج.م`;
+            document.getElementById('modalTotal').textContent = `${Number(finalTotal).toFixed(2)} ج.م`;
+        
+        } else {
+            itemsBody.innerHTML = '<tr><td colspan="4" class="text-center">لا توجد عناصر مفصلة لهذا الطلب.</td></tr>';
+            const total = order.totalPrice || order.Total || 0;
+            document.getElementById('modalSubtotal').textContent = `${Number(total).toFixed(2)} ج.م`;
+            document.getElementById('modalTotal').textContent = `${Number(total).toFixed(2)} ج.م`;
+        }
+
+        document.getElementById('deleteOrderBtn').onclick = deleteCurrentOrder;
+
+        orderModal.show();
+    };
+</script>
     <script>
         function saveToLocalStorage(key, data) {
             localStorage.setItem(key, JSON.stringify(data));
@@ -257,7 +501,6 @@
             return data ? JSON.parse(data) : null;
         }
 
-        const orderModal = new bootstrap.Modal(document.getElementById('orderModal'));
         const userModal = new bootstrap.Modal(document.getElementById('userModal'));
         
         document.getElementById('mobileMenuBtn').addEventListener('click', () => {
@@ -283,17 +526,6 @@
                 window.location.href = './auth/login.html';
             }
             return false;
-        }
-
-        function updateOrderStatus(select, id) {
-            const status = select.value;
-            alert(`تم تحديث حالة الطلب ${id} إلى: ${status}`);
-        }
-
-        function openOrderModal(id, cust, date, total, status) {
-            document.getElementById('modalOrderId').textContent = id;
-            document.getElementById('modalCustomer').textContent = cust;
-            orderModal.show();
         }
 
         function toggleUser(checkbox, name) {
