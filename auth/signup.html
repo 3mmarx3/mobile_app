@@ -12,6 +12,7 @@
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics-compat.js"></script>
 </head>
 <body>
@@ -64,13 +65,12 @@
       </form>
 
       <div class="footer-text">
-        © 2025 ShopAdmin. جميع الحقوق محفوظة.
+        ©️ 2025 ShopAdmin. جميع الحقوق محفوظة.
       </div>
     </div>
   </div>
 
   <script>
-    // 1. إعدادات Firebase والتهيئة
     const firebaseConfig = {
       apiKey: "AIzaSyDlKhp5gKE6l5BFBOBcLv6JZB3xIOnwqDo",
       authDomain: "shop-732bb.firebaseapp.com",
@@ -85,11 +85,11 @@
     const app = firebase.initializeApp(firebaseConfig);
     firebase.analytics();
     const auth = firebase.auth();
+    // 2. INITIALIZE FIRESTORE
+    const db = firebase.firestore();
 
-    // 2. دالة تبديل كلمة المرور (معدلة لقبول ID الحقل)
     function togglePass(fieldId) {
       const password = document.getElementById(fieldId);
-      // استخدام togglePassword للحقل الأول و toggleConfirmPassword للحقل الثاني
       const iconId = fieldId === 'password' ? 'togglePassword' : 'toggleConfirmPassword';
       const icon = document.getElementById(iconId);
 
@@ -98,7 +98,6 @@
       icon.classList.toggle('fa-eye');
     }
 
-    // 3. دالة إنشاء حساب باستخدام Firebase
     async function handleSignup(e) {
       e.preventDefault();
 
@@ -106,46 +105,55 @@
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
       const confirmPassword = document.getElementById('confirmPassword').value;
+      const btn = document.querySelector('.btn-login');
 
       document.getElementById('errorMsg').style.display = 'none';
       document.getElementById('successMsg').style.display = 'none';
 
-      // تحقق محلي: تطابق كلمات المرور
       if (password !== confirmPassword) {
         document.getElementById('errorMsg').textContent = 'كلمتا المرور غير متطابقتين!';
         document.getElementById('errorMsg').style.display = 'block';
         return;
       }
       
-      // تحقق محلي: طول كلمة المرور (Firebase تتطلب 6 أحرف على الأقل)
       if (password.length < 6) {
         document.getElementById('errorMsg').textContent = 'يجب أن لا تقل كلمة المرور عن 6 أحرف.';
         document.getElementById('errorMsg').style.display = 'block';
         return;
       }
 
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإنشاء...';
+
       try {
-        // استدعاء دالة إنشاء المستخدم من Firebase
+        // A. Create Auth User
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        const user = userCredential.user;
         
-        // تحديث اسم العرض (Display Name) للمستخدم في Firebase
-        await userCredential.user.updateProfile({
+        await user.updateProfile({
             displayName: fullName
         });
 
-        // النجاح
-        console.log("Signup successful:", userCredential.user);
-        document.getElementById('successMsg').textContent =
+        // B. SAVE TO FIRESTORE AS ADMIN
+        // This is the critical part to link the user to the database
+        await db.collection('users').doc(user.uid).set({
+            id: user.uid,
+            name: fullName,
+            email: email,
+            role: 'admin', // <--- Force Role to ADMIN
+            state: true
+        });
+
+        console.log("Signup successful and DB updated:", user.uid);
+        
+        document.getElementById('successMsg').textContent = 
           `تم تسجيل الحساب بنجاح يا ${fullName}! جاري تحويلك لصفحة تسجيل الدخول...`;
         document.getElementById('successMsg').style.display = 'block';
 
-        // التوجيه بعد 3 ثوانٍ
         setTimeout(() => {
           window.location.href = 'login.html';
         }, 3000);
 
       } catch (error) {
-        // الفشل
         console.error("Firebase Signup Error:", error.code, error.message);
         
         let errorMessage = 'حدث خطأ أثناء إنشاء الحساب.';
@@ -157,10 +165,11 @@
         
         document.getElementById('errorMsg').textContent = errorMessage;
         document.getElementById('errorMsg').style.display = 'block';
+      } finally {
+        btn.innerHTML = '<i class="fas fa-user-plus"></i> تسجيل حساب';
       }
     }
 
-    // 4. مستمع المدخلات لإخفاء رسالة الخطأ
     document.querySelectorAll('input').forEach(input => {
       input.addEventListener('input', () => {
         document.getElementById('errorMsg').style.display = 'none';

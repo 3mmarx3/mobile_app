@@ -4,20 +4,222 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>شوب أدمن - إدارة الفئات</title>
-    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="../style/style.css">
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
+        const firebaseConfig = {
+            apiKey: "AIzaSyDlKhp5gKE6l5BFBOBcLv6JZB3xIOnwqDo",
+            authDomain: "shop-732bb.firebaseapp.com",
+            projectId: "shop-732bb",
+            storageBucket: "shop-732bb.firebasestorage.app",
+            messagingSenderId: "650792166626",
+            appId: "1:650792166626:web:4ae7de7821542520096abb"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const categoriesCol = collection(db, 'categories');
+
+        const categoryModal = new bootstrap.Modal(document.getElementById('categoryModal'));
+        let currentEditId = null;
+        let currentImageDataUrl = '';
+
+        // تحقق من حالة المصادقة أولاً
+        onAuthStateChanged(auth, (user) => {
+            if (!user) {
+                // لو المستخدم مش مسجل دخول → روح لصفحة اللوجن
+                window.location.href = "/auth/login.html";
+                return;
+            }
+            // لو مسجل → حمّل الفئات
+            loadCategories();
+        });
+
+        function loadCategories() {
+            const tbody = document.getElementById('categoriesTable');
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4">جاري تحميل الفئات...</td></tr>';
+
+            onSnapshot(categoriesCol, (snapshot) => {
+                tbody.innerHTML = '';
+                let count = 0;
+
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-5 text-muted">لا توجد فئات حالياً</td></tr>';
+                    updateCount(0);
+                    return;
+                }
+
+                snapshot.forEach(docSnap => {
+                    const cat = docSnap.data();
+                    const id = docSnap.id;
+                    count++;
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td><input type="checkbox" class="row-check"></td>
+                        <td><img src="${cat.img || 'https://via.placeholder.com/200'}" class="category-img" style="width:50px;height:50px;object-fit:cover;border-radius:8px;" alt="${cat.name || 'فئة'}"></td>
+                        <td><strong>${cat.name || ''}</strong></td>
+                        <td><code>${cat.slug || ''}</code></td>
+                        <td><span class="badge badge-custom badge-count">${cat.count || 0}</span></td>
+                        <td><span class="badge badge-custom ${cat.state ? 'active' : 'draft'}" style="background-color:${cat.state?'#10b981':'#64748b'}">${cat.state ? 'منشور' : 'مسودة'}</span></td>
+                        <td>
+                            <a href="#" class="edit me-2" onclick="openEditCategory('${id}', '${escapeHtml(cat.name || '')}', '${cat.img || ''}', ${cat.state})">
+                                <i class="fas fa-edit text-primary"></i>
+                            </a>
+                            <a href="#" class="delete" onclick="deleteCategory('${id}')">
+                                <i class="fas fa-trash text-danger"></i>
+                            </a>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                updateCount(count);
+            }, (error) => {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">خطأ في تحميل البيانات: ${error.message}</td></tr>`;
+                updateCount(0);
+            });
+        }
+
+        function updateCount(count) {
+            document.querySelector('.page-header h2').textContent = `جميع الفئات (${count})`;
+        }
+
+        // دالة لتجنب مشاكل XSS عند تمرير النصوص في onclick
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        window.openAddCategoryModal = function() {
+            document.getElementById('catModalTitle').textContent = 'إضافة فئة جديدة';
+            document.getElementById('catName').value = '';
+            document.getElementById('catStatus').checked = true;
+            document.getElementById('imagePreview').style.display = 'none';
+            document.getElementById('catImage').value = '';
+            document.getElementById('previewImg').src = '';
+            currentEditId = null;
+            currentImageDataUrl = '';
+            categoryModal.show();
+        };
+
+        window.openEditCategory = function(id, name, img, state) {
+            currentEditId = id;
+            currentImageDataUrl = img || '';
+            document.getElementById('catModalTitle').textContent = 'تعديل الفئة';
+            document.getElementById('catName').value = name;
+            document.getElementById('catStatus').checked = state;
+
+            if (img) {
+                document.getElementById('previewImg').src = img;
+                document.getElementById('imagePreview').style.display = 'block';
+            } else {
+                document.getElementById('imagePreview').style.display = 'none';
+            }
+            categoryModal.show();
+        };
+
+        window.deleteCategory = async function(id) {
+            if (confirm('هل أنت متأكد من حذف هذه الفئة نهائيًا؟ لا يمكن التراجع!')) {
+                try {
+                    await deleteDoc(doc(db, "categories", id));
+                } catch (e) {
+                    alert("فشل الحذف: " + e.message);
+                }
+            }
+        };
+
+        window.saveCategory = async function() {
+            const nameInput = document.getElementById('catName');
+            const name = nameInput.value.trim();
+            if (!name) {
+                alert('اسم الفئة مطلوب');
+                nameInput.focus();
+                return;
+            }
+
+            const state = document.getElementById('catStatus').checked;
+
+            let imgDataUrl = currentImageDataUrl;
+
+            const fileInput = document.getElementById('catImage');
+            if (fileInput.files && fileInput.files[0]) {
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imgDataUrl = e.target.result;
+                    performSave(imgDataUrl);
+                };
+                reader.readAsDataURL(file);
+                return; // ننتظر حتى يتم قراءة الصورة
+            }
+
+            performSave(imgDataUrl);
+        };
+
+        async function performSave(imgDataUrl) {
+            const name = document.getElementById('catName').value.trim();
+            const slug = name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]/g, '');
+
+            const categoryData = {
+                name: name,
+                slug: slug,
+                img: imgDataUrl || '',
+                state: document.getElementById('catStatus').checked,
+            };
+
+            try {
+                if (currentEditId) {
+                    await updateDoc(doc(db, "categories", currentEditId), categoryData);
+                } else {
+                    categoryData.count = 0;
+                    await addDoc(categoriesCol, categoryData);
+                }
+                categoryModal.hide();
+            } catch (e) {
+                console.error(e);
+                alert("حدث خطأ أثناء الحفظ: " + e.message);
+            }
+        }
+
+        window.removeCatImage = function() {
+            document.getElementById('imagePreview').style.display = 'none';
+            document.getElementById('catImage').value = '';
+            document.getElementById('previewImg').src = '';
+            currentImageDataUrl = '';
+        };
+
+        // رفع الصورة
+        document.getElementById('dropZone').addEventListener('click', () => document.getElementById('catImage').click());
+        document.getElementById('catImage').addEventListener('change', e => {
+            if (e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    document.getElementById('previewImg').src = ev.target.result;
+                    document.getElementById('imagePreview').style.display = 'block';
+                    currentImageDataUrl = ev.target.result;
+                };
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+
+        // زر القائمة الجانبية على الموبايل
+        document.getElementById('mobileMenuBtn')?.addEventListener('click', () => {
+            document.getElementById('sidebar')?.classList.toggle('active');
+        });
+    </script>
 </head>
 <body>
-
-    <header id="header">
-        
-    </header>
-
+    <header id="header"></header>
     <div class="main-content">
         <div class="header d-flex justify-content-between align-items-center">
             <div class="d-flex align-items-center gap-3">
@@ -33,11 +235,10 @@
         </div>
 
         <div id="page-container">
-      
             <div id="categories" class="page active">
                 <div class="container-fluid">
                     <div class="d-flex justify-content-between align-items-center mb-4 page-header">
-                        <h2 class="mb-0">جميع الفئات (18)</h2>
+                        <h2 class="mb-0">جميع الفئات (0)</h2>
                         <button class="btn btn-custom btn-primary" onclick="openAddCategoryModal()">إضافة فئة جديدة</button>
                     </div>
 
@@ -55,33 +256,13 @@
                                         <th>الإجراءات</th>
                                     </tr>
                                 </thead>
-                                <tbody id="categoriesTable">
-                                    <tr>
-                                        <td><input type="checkbox" class="row-check"></td>
-                                        <td><img src="https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=200&h=200&fit=crop" class="category-img" alt="الهواتف الذكية"></td>
-                                        <td><strong>الهواتف الذكية</strong></td>
-                                        <td>smartphones</td>
-                                        <td><span class="badge badge-custom badge-count">42</span></td>
-                                        <td><span class="badge badge-custom active">منشور</span></td>
-                                        <td>
-                                            <a href="#" class="edit" onclick="openEditCategoryModal(this,'الهواتف الذكية','smartphones','https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=200&h=200&fit=crop',42,true)"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil-square" viewBox="0 0 16 16">
-  <path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/>
-  <path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5z"/>
-</svg></a>
-                                            <a href="#" class="delete "   onclick="if(confirm('حذف؟')) this.closest('tr').remove()">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-x-octagon" viewBox="0 0 16 16">
-  <path d="M4.54.146A.5.5 0 0 1 4.893 0h6.214a.5.5 0 0 1 .353.146l4.394 4.394a.5.5 0 0 1 .146.353v6.214a.5.5 0 0 1-.146.353l-4.394 4.394a.5.5 0 0 1-.353.146H4.893a.5.5 0 0 1-.353-.146L.146 11.46A.5.5 0 0 1 0 11.107V4.893a.5.5 0 0 1 .146-.353zM5.1 1 1 5.1v5.8L5.1 15h5.8l4.1-4.1V5.1L10.9 1z"/>
-  <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
-</svg>
-                                            </a>
-                                        </td>
-                                    </tr>
-                                </tbody>
+                                <tbody id="categoriesTable"></tbody>
                             </table>
                         </div>
                     </div>
                 </div>
 
+                <!-- مودال إضافة/تعديل فئة -->
                 <div class="modal modal-custom fade" id="categoryModal" tabindex="-1">
                     <div class="modal-dialog">
                         <div class="modal-content">
@@ -92,30 +273,26 @@
                             <div class="modal-body">
                                 <div class="form-group mb-3">
                                     <label class="form-label">اسم الفئة *</label>
-                                    <input type="text" id="catName" class="form-control" required>
+                                    <input type="text" id="catName" class="form-control" placeholder="مثال: ملابس رجالي" required>
                                 </div>
+
                                 <div class="form-group mb-3">
-                                    <label class="form-label">الرابط (URL)</label>
-                                    <input type="text" id="catSlug" class="form-control">
-                                </div>
-                                <div class="form-group mb-3">
-                                    <label class="form-label">صورة الفئة *</label>
+                                    <label class="form-label">صورة الفئة (اختياري)</label>
                                     <div class="image-upload" id="dropZone">
                                         <i class="fas fa-cloud-upload-alt fa-3x mb-2" style="color:#94a3b8;"></i>
                                         <p class="mb-2" style="color:#64748b;font-weight:600;">انقر للرفع أو اسحب وأفلت</p>
-                                        <p style="color:#94a3b8;font-size:0.9rem;">PNG, JPG, WebP حتى 2MB</p>
+                                        <p style="color:#94a3b8;font-size:0.9rem;">PNG, JPG, WebP</p>
                                         <input type="file" id="catImage" accept="image/*" style="display:none">
                                     </div>
                                     <div class="image-preview mt-3" id="imagePreview" style="display:none;text-align:center;position:relative;">
                                         <img id="previewImg" src="" alt="معاينة" style="max-width:200px;border-radius:8px;">
-                                        <button class="remove-img" onclick="removeCatImage()">×</button>
+                                        <button type="button" class="remove-img" onclick="removeCatImage()">×</button>
                                     </div>
                                 </div>
+
                                 <div class="form-check mb-3">
                                     <input class="form-check-input" type="checkbox" id="catStatus" checked>
-                                    <label class="form-check-label" for="catStatus">
-                                        نشر الفئة
-                                    </label>
+                                    <label class="form-check-label" for="catStatus">نشر الفئة فوراً</label>
                                 </div>
                             </div>
                             <div class="modal-footer">
@@ -131,140 +308,5 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../app/header.js"></script>
-    <script>
-        function saveToLocalStorage(key, data) {
-            localStorage.setItem(key, JSON.stringify(data));
-        }
-
-        function getFromLocalStorage(key) {
-            const data = localStorage.getItem(key);
-            return data ? JSON.parse(data) : null;
-        }
-
-        const categoryModal = new bootstrap.Modal(document.getElementById('categoryModal'));
-        
-        document.getElementById('mobileMenuBtn').addEventListener('click', () => {
-            document.getElementById('sidebar').classList.toggle('active');
-        });
-
-        document.addEventListener('click', (e) => {
-            const sidebar = document.getElementById('sidebar');
-            const mobileBtn = document.getElementById('mobileMenuBtn');
-
-            if (window.innerWidth < 992 && 
-                sidebar &&
-                sidebar.classList.contains('active') && 
-                !sidebar.contains(e.target) && 
-                e.target !== mobileBtn && 
-                !mobileBtn.contains(e.target)) {
-                sidebar.classList.remove('active');
-            }
-        });
-
-        function logout() {
-            if (confirm('هل أنت متأكد من تسجيل الخروج؟')) {
-                localStorage.removeItem('adminLoggedIn');
-                window.location.href = './auth/login.html'; 
-            }
-            return false;
-        }
-
-        let currentEditRow = null;
-        
-        function openAddCategoryModal() {
-            document.getElementById('catModalTitle').textContent = 'إضافة فئة جديدة';
-            document.getElementById('catName').value = '';
-            document.getElementById('catSlug').value = '';
-            document.getElementById('catStatus').checked = true;
-            document.getElementById('imagePreview').style.display = 'none';
-            document.getElementById('catImage').value = ''; 
-            currentEditRow = null;
-            categoryModal.show();
-        }
-
-        function openEditCategoryModal(btn, name, slug, img, count, status) {
-            document.getElementById('catModalTitle').textContent = 'تعديل الفئة';
-            document.getElementById('catName').value = name;
-            document.getElementById('catSlug').value = slug;
-            document.getElementById('catStatus').checked = status;
-            document.getElementById('previewImg').src = img;
-            document.getElementById('imagePreview').style.display = 'block';
-            document.getElementById('catImage').value = '';
-            currentEditRow = btn.closest('tr');
-            categoryModal.show();
-        }
-
-        function removeCatImage() {
-            document.getElementById('imagePreview').style.display = 'none';
-            document.getElementById('catImage').value = '';
-        }
-
-        function saveCategory() {
-            const name = document.getElementById('catName').value.trim();
-            const slug = document.getElementById('catSlug').value || name.toLowerCase().replace(/ /g,'-');
-            const img = document.getElementById('previewImg').src || 'https://via.placeholder.com/200';
-            const status = document.getElementById('catStatus').checked;
-            
-            if (!name) {
-                alert('اسم الفئة مطلوب!');
-                return;
-            }
-            
-            if (!currentEditRow) {
-                const row = document.querySelector('#categoriesTable').insertRow(0);
-                row.innerHTML = `
-                    <td><input type="checkbox" class="row-check"></td>
-                    <td><img src="${img}" class="category-img" alt="${name}"></td>
-                    <td><strong>${name}</strong></td>
-                    <td>${slug}</td>
-                    <td><span class="badge badge-custom badge-count">0</span></td>
-                    <td><span class="badge badge-custom ${status?'active':'draft'}">${status?'منشور':'مسودة'}</span></td>
-                    <td>
-                        <a href="#" class="edit" onclick="openEditCategoryModal(this,'${name}','${slug}','${img}',0,${status})"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil-square" viewBox="0 0 16 16"><path d="M15.502 1.94a.5.5 0 0 1 0 .706L14.459 3.69l-2-2L13.502.646a.5.5 0 0 1 .707 0l1.293 1.293zm-1.75 2.456-2-2L4.939 9.21a.5.5 0 0 0-.121.196l-.805 2.414a.25.25 0 0 0 .316.316l2.414-.805a.5.5 0 0 0 .196-.12l6.813-6.814z"/><path fill-rule="evenodd" d="M1 13.5A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-6a.5.5 0 0 0-1 0v6a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5v-11a.5.5 0 0 1 .5-.5H9a.5.5 0 0 0 0-1H2.5A1.5 1.5 0 0 0 1 2.5z"/></svg></a>
-                        <a href="#" class="delete " onclick="if(confirm('حذف؟')) this.closest('tr').remove()"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-x-octagon" viewBox="0 0 16 16"><path d="M4.54.146A.5.5 0 0 1 4.893 0h6.214a.5.5 0 0 1 .353.146l4.394 4.394a.5.5 0 0 1 .146.353v6.214a.5.5 0 0 1-.146.353l-4.394 4.394a.5.5 0 0 1-.353.146H4.893a.5.5 0 0 1-.353-.146L.146 11.46A.5.5 0 0 1 0 11.107V4.893a.5.5 0 0 1 .146-.353zM5.1 1 1 5.1v5.8L5.1 15h5.8l4.1-4.1V5.1L10.9 1z"/><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/></svg></a>
-                    </td>
-                `;
-            } else {
-                currentEditRow.cells[2].innerHTML = `<strong>${name}</strong>`;
-                currentEditRow.cells[3].textContent = slug;
-                currentEditRow.cells[1].innerHTML = `<img src="${img}" class="category-img" alt="${name}">`;
-                currentEditRow.cells[5].innerHTML = `<span class="badge badge-custom ${status?'active':'draft'}">${status?'منشور':'مسودة'}</span>`;
-                const editLink = currentEditRow.querySelector('.edit');
-                editLink.setAttribute('onclick', `openEditCategoryModal(this,'${name}','${slug}','${img}',${currentEditRow.cells[4].textContent},${status})`);
-            }
-
-            alert('تم حفظ الفئة!');
-            categoryModal.hide();
-        }
-
-        document.getElementById('dropZone').addEventListener('click', () => document.getElementById('catImage').click());
-        
-        document.getElementById('catImage').addEventListener('change', e => {
-            if (e.target.files[0]) {
-                const reader = new FileReader();
-                reader.onload = ev => {
-                    document.getElementById('previewImg').src = ev.target.result;
-                    document.getElementById('imagePreview').style.display = 'block';
-                };
-                reader.readAsDataURL(e.target.files[0]);
-            }
-        });
-
-        document.getElementById('selectAllTop').addEventListener('click', () => {
-            const isChecked = document.getElementById('selectAllTop').checked;
-            document.querySelectorAll('.row-check').forEach(cb => cb.checked = isChecked);
-        });
-
-        window.addEventListener('resize', () => {
-            if (window.innerWidth >= 992) {
-                const sidebar = document.getElementById('sidebar');
-                if (sidebar) {
-                    sidebar.classList.remove('active');
-                }
-            }
-        });
-
-  
-    </script>
 </body>
 </html>
