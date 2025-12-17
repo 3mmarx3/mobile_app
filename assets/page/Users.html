@@ -48,11 +48,24 @@
 
         function formatTime(timeStr) {
             if (!timeStr) return 'غير متوفر';
-            const [hours, minutes] = timeStr.split(':').map(Number);
-            let h = hours % 12;
-            h = h ? h : 12;
-            const ampm = hours >= 12 ? 'PM' : 'AM';
-            return `${h}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+            
+            if (timeStr.toString().includes('PM') || timeStr.toString().includes('AM')) {
+                return timeStr;
+            }
+
+            const parts = timeStr.split(':');
+            if (parts.length >= 2) {
+                const hours = parseInt(parts[0]);
+                const minutes = parseInt(parts[1]);
+                if (!isNaN(hours)) {
+                    let h = hours % 12;
+                    h = h ? h : 12;
+                    const ampm = hours >= 12 ? 'PM' : 'AM';
+                    const minStr = !isNaN(minutes) ? minutes.toString().padStart(2, '0') : '00';
+                    return `${h}:${minStr} ${ampm}`;
+                }
+            }
+            return timeStr;
         }
 
         function createTableRow(u, key) {
@@ -69,8 +82,8 @@
                         </div>
                     </td>
                     <td>${u.phone || '-'}</td>
-                    <td>${u.orderDate || '-'}</td>
-                    <td>${u.orderTime ? formatTime(u.orderTime) : '-'}</td>
+                    <td>${u.joinDate || '-'}</td>
+                    <td dir="ltr">${u.joinTime ? formatTime(u.joinTime) : '-'}</td>
                     <td>${u.ordersCount || 0}</td>
                     <td><span class="badge badge-custom ${statusClass}">${statusText}</span></td>
                     <td>
@@ -160,9 +173,9 @@
             document.getElementById('modalEmail').textContent = u.email || '-';
             document.getElementById('modalLocation').textContent = u.location || '-';
             document.getElementById('modalPlaceName').textContent = u.placeName || '-';
+            document.getElementById('modalDate').textContent = u.joinDate || '-';
+            document.getElementById('modalTime').textContent = u.joinTime ? formatTime(u.joinTime) : '-';
             document.getElementById('modalOrdersCount').textContent = u.ordersCount || 0;
-            document.getElementById('modalDate').textContent = u.orderDate || '-';
-            document.getElementById('modalTime').textContent = u.orderTime ? formatTime(u.orderTime) : '-';
 
             const statusEl = document.getElementById('modalStatus');
             statusEl.textContent = statusText;
