@@ -9,24 +9,208 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./assets/style/style.css">
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDlKhp5gKE6l5BFBOBcLv6JZB3xIOnwqDo",
+            authDomain: "shop-732bb.firebaseapp.com",
+            projectId: "shop-732bb",
+            storageBucket: "shop-732bb.firebasestorage.app",
+            messagingSenderId: "650792166626",
+            appId: "1:650792166626:web:4ae7de7821542520096abb"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                window.location.href = "/auth/login.html";
+                return;
+            }
+
+            const userRef = doc(db, "users", user.uid);
+            const userSnap = await getDoc(userRef);
+            if (!userSnap.exists() || userSnap.data().role !== 'admin') {
+                await signOut(auth);
+                window.location.href = "/auth/login.html";
+                return;
+            }
+
+            loadDashboardData();
+        });
+
+        window.logout = async function() {
+            await signOut(auth);
+            window.location.href = "/auth/login.html";
+        };
+
+        async function loadDashboardData() {
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+
+            const ordersRef = collection(db, "orders");
+            const productsRef = collection(db, "products");
+            const usersRef = collection(db, "users");
+
+            onSnapshot(usersRef, (snapshot) => {
+                let clientCount = 0;
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    if (data.role !== 'admin') clientCount++;
+                });
+                document.querySelectorAll('.stat-number')[2].textContent = clientCount.toLocaleString();
+            });
+
+            const recentTbody = document.querySelector('#recent-orders tbody');
+            const topTbody = document.querySelector('#top-products tbody');
+
+            onSnapshot(ordersRef, async (snapshot) => {
+                let todaySales = 0;
+                let totalOrders = 0;
+                let pendingCount = 0;
+                const recentOrdersList = [];
+                const userNames = {};
+
+                snapshot.forEach((doc) => {
+                    const order = doc.data();
+                    order.id = doc.id;
+
+                    totalOrders++;
+
+                    if (order.date && order.date.includes(todayStr)) {
+                        todaySales += order.totalPrice || order.total || 0;
+                    }
+
+                    if (order.status === 'pending' || order.status === 'processing') {
+                        pendingCount++;
+                    }
+
+                    recentOrdersList.push(order);
+
+                    if (order.userId && !userNames[order.userId]) {
+                        userNames[order.userId] = 'جاري التحميل...';
+                    }
+                });
+
+                if (Object.keys(userNames).length > 0) {
+                    const userPromises = Object.keys(userNames).map(uid => getDoc(doc(db, "users", uid)));
+                    const userSnaps = await Promise.all(userPromises);
+                    userSnaps.forEach((snap, index) => {
+                        const uid = Object.keys(userNames)[index];
+                        if (snap.exists()) {
+                            const uData = snap.data();
+                            userNames[uid] = uData.name || uData.displayName || uData.username || 'غير محدد';
+                        } else {
+                            userNames[uid] = 'غير محدد';
+                        }
+                    });
+                }
+
+                recentOrdersList.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+                const latestFive = recentOrdersList.slice(0, 5);
+
+                document.querySelectorAll('.stat-number')[0].textContent = todaySales.toLocaleString();
+                document.querySelectorAll('.stat-number')[1].textContent = totalOrders;
+                document.querySelectorAll('small')[1].textContent = pendingCount + ' قيد الشحن';
+
+                recentTbody.innerHTML = '';
+                if (latestFive.length === 0) {
+                    recentTbody.innerHTML = '<tr><td colspan="5" class="text-center">لا توجد طلبات بعد</td></tr>';
+                } else {
+                    latestFive.forEach((order) => {
+                        const customerName = order.customerName || order.name || userNames[order.userId] || order.userName || 'غير محدد';
+                        const statusText = order.status === 'delivered' ? 'تم التسليم' :
+                                          order.status === 'shipped' ? 'تم الشحن' :
+                                          order.status === 'processing' ? 'قيد المعالجة' : 'قيد الانتظار';
+                        const statusClass = order.status === 'delivered' ? 'delivered' :
+                                           order.status === 'shipped' ? 'shipped' : 'pending';
+
+                        recentTbody.innerHTML += `
+                            <tr>
+                                <td><input type="checkbox" class="row-check"></td>
+                                <td>#${order.id.slice(-6)}</td>
+                                <td>${customerName}</td>
+                                <td><span class="badge badge-custom ${statusClass}">${statusText}</span></td>
+                                <td>${(order.totalPrice || order.total || 0).toLocaleString()} ج.م</td>
+                            </tr>
+                        `;
+                    });
+                }
+            });
+
+            onSnapshot(productsRef, (snapshot) => {
+                const salesMap = {};
+                snapshot.forEach((doc) => {
+                    const p = doc.data();
+                    salesMap[doc.id] = { name: p.name || 'غير معروف', sales: 0, revenue: 0 };
+                });
+
+                onSnapshot(ordersRef, (orderSnap) => {
+                    orderSnap.forEach((orderDoc) => {
+                        const order = orderDoc.data();
+                        if (order.items) {
+                            order.items.forEach((item) => {
+                                const pid = item.productId || item.id;
+                                if (salesMap[pid]) {
+                                    const qty = item.quantity || item.count || 1;
+                                    const price = item.price || 0;
+                                    salesMap[pid].sales += qty;
+                                    salesMap[pid].revenue += qty * price;
+                                }
+                            });
+                        }
+                    });
+
+                    const top = Object.values(salesMap)
+                        .sort((a, b) => b.revenue - a.revenue)
+                        .slice(0, 4);
+
+                    topTbody.innerHTML = '';
+                    if (top.length === 0) {
+                        topTbody.innerHTML = '<tr><td colspan="3" class="text-center">لا توجد مبيعات بعد</td></tr>';
+                    } else {
+                        top.forEach((p) => {
+                            topTbody.innerHTML += `
+                                <tr>
+                                    <td>${p.name}</td>
+                                    <td>${p.sales}</td>
+                                    <td>${p.revenue.toLocaleString()} ج.م</td>
+                                </tr>
+                            `;
+                        });
+                    }
+                });
+            });
+
+            document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+                document.getElementById('sidebar').classList.toggle('active');
+            });
+        }
+    </script>
 </head>
 <body>
     <div class="sidebar" id="sidebar">
-        <div class="logo"> القمه للتجاره والتوزيع</div>
+        <div class="logo">القمة للتجارة والتوزيع</div>
         
-        <a href="/index.html" class="active" data-page="dashboard">
+        <a href="/index.html" class="active">
             <i class="fas fa-tachometer-alt"></i> لوحة التحكم
         </a>
-        <a href="./assets/page/product.html" data-page="products">
+        <a href="./assets/page/product.html">
             <i class="fas fa-box-open"></i> المنتجات
         </a>
-        <a href="./assets/page/Categories.html" data-page="categories">
+        <a href="./assets/page/Categories.html">
             <i class="fas fa-folder-open"></i> الفئات
         </a>
-        <a href="./assets/page/orders.html" data-page="orders">
+        <a href="./assets/page/orders.html">
             <i class="fas fa-shopping-cart"></i> الطلبات
         </a>
-        <a href="./assets/page/Users.html" data-page="users">
+        <a href="./assets/page/Users.html">
             <i class="fas fa-users"></i> المستخدمين
         </a>
         
@@ -59,8 +243,8 @@
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <h3 style="color:#6b7280;margin-bottom:0.5rem">مبيعات اليوم</h3>
-                                    <div class="stat-number">$12,458</div>
-                                    <small style="color:#10b981">+18% من الأمس</small>
+                                    <div class="stat-number">0</div>
+                                    <small style="color:#10b981"> + اليوم</small>
                                 </div>
                                 <i class="fas fa-dollar-sign fa-3x" style="color:#e0e7ff;opacity:0.7"></i>
                             </div>
@@ -71,8 +255,8 @@
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <h3 style="color:#6b7280;margin-bottom:0.5rem">طلبات جديدة</h3>
-                                    <div class="stat-number">142</div>
-                                    <small style="color:#f59e0b">38 قيد الشحن</small>
+                                    <div class="stat-number">0</div>
+                                    <small style="color:#f59e0b"> قيد الشحن</small>
                                 </div>
                                 <i class="fas fa-shopping-bag fa-3x" style="color:#fef3c7;opacity:0.7"></i>
                             </div>
@@ -83,8 +267,8 @@
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
                                     <h3 style="color:#6b7280;margin-bottom:0.5rem">إجمالي العملاء</h3>
-                                    <div class="stat-number">8,429</div>
-                                    <small style="color:#10b981">+429 هذا الشهر</small>
+                                    <div class="stat-number">0</div>
+                                    <small style="color:#10b981"> هذا الشهر</small>
                                 </div>
                                 <i class="fas fa-users fa-3x" style="color:#dbeafe;opacity:0.7"></i>
                             </div>
@@ -97,11 +281,10 @@
                         <div class="card-custom">
                             <h3>الطلبات الحديثة</h3>
                             <div class="table-responsive table-responsive-custom">
-                                <table class="table table-custom">
+                                <table class="table table-custom" id="recent-orders">
                                     <thead>
                                         <tr>
                                             <th><input type="checkbox" class="row-check"></th>
-
                                             <th>رقم الطلب</th>
                                             <th>العميل</th>
                                             <th>الحالة</th>
@@ -109,41 +292,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr>
-                                            <td><input type="checkbox" class="row-check"></td>
-                                            <td>#10248</td>
-                                            <td>أحمد محمد</td>
-                                            <td><span class="badge badge-custom pending">قيد الانتظار</span></td>
-                                            <td>$320</td>
-                                        </tr>
-                                        <tr>
-                                            <td><input type="checkbox" class="row-check"></td>
-                                            <td>#10247</td>
-                                            <td>فاطمة علي</td>
-                                            <td><span class="badge badge-custom shipped">تم الشحن</span></td>
-                                            <td>$89</td>
-                                        </tr>
-                                        <tr>
-                                            <td><input type="checkbox" class="row-check"></td>
-                                            <td>#10246</td>
-                                            <td>محمود خالد</td>
-                                            <td><span class="badge badge-custom delivered">تم التسليم</span></td>
-                                            <td>$1,240</td>
-                                        </tr>
-                                        <tr>
-                                            <td><input type="checkbox" class="row-check"></td>
-                                            <td>#10245</td>
-                                            <td>نورا حسن</td>
-                                            <td><span class="badge badge-custom pending">قيد الانتظار</span></td>
-                                            <td>$156</td>
-                                        </tr>
-                                        <tr>
-                                            <td><input type="checkbox" class="row-check"></td>
-                                            <td>#10244</td>
-                                            <td>يوسف إبراهيم</td>
-                                            <td><span class="badge badge-custom delivered">تم التسليم</span></td>
-                                            <td>$450</td>
-                                        </tr>
+                                        <tr><td colspan="5" class="text-center">لا توجد طلبات بعد</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -154,7 +303,7 @@
                         <div class="card-custom">
                             <h3>المنتجات الأكثر مبيعاً</h3>
                             <div class="table-responsive table-responsive-custom">
-                                <table class="table table-custom">
+                                <table class="table table-custom" id="top-products">
                                     <thead>
                                         <tr>
                                             <th>المنتج</th>
@@ -163,26 +312,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr>
-                                            <td>سماعات بلوتوث برو</td>
-                                            <td>342</td>
-                                            <td>$23,940</td>
-                                        </tr>
-                                        <tr>
-                                            <td>لابتوب ألعاب X1</td>
-                                            <td>189</td>
-                                            <td>$188,211</td>
-                                        </tr>
-                                        <tr>
-                                            <td>جلاكسي Z فولد</td>
-                                            <td>156</td>
-                                            <td>$148,980</td>
-                                        </tr>
-                                        <tr>
-                                            <td>كاميرا DSLR 4K</td>
-                                            <td>97</td>
-                                            <td>$67,900</td>
-                                        </tr>
+                                        <tr><td colspan="3" class="text-center">لا توجد مبيعات بعد</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -190,8 +320,7 @@
                     </div>
                 </div>
             </div>
-            
-            </div>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>شوب أدمن - إدارة المستخدمين</title>
+    <title>شوب أدمن - إدارة العملاء</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -12,7 +12,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDlKhp5gKE6l5BFBOBcLv6JZB3xIOnwqDo",
@@ -31,53 +31,40 @@
         const userModal = new bootstrap.Modal(document.getElementById('userModal'));
         let currentUserData = {};
         let loggedInUserId = null;
-        
-        function formatTimeForDisplay(time24) {
-            if (!time24 || typeof time24 !== 'string') return '-';
-            
-            const parts = time24.split(':');
-            if (parts.length < 2) return time24;
 
-            let hours = parseInt(parts[0], 10);
-            const minutes = parts[1];
-            const seconds = parts.length > 2 ? ':' + parts[2] : '';
-            const ampm = hours >= 12 ? ' PM' : ' AM';
-            
-            hours = hours % 12;
-            hours = hours ? hours : 12;
-            
-            const formattedHours = hours.toString().padStart(2, '0');
-            
-            return `${formattedHours}:${minutes}${seconds ? seconds : ''}${ampm}`;
-        }
-
-        onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, async (user) => {
             if (!user) {
                 window.location.href = "/auth/login.html";
                 return;
             }
             loggedInUserId = user.uid;
+            
+            const userRef = doc(db, "users", user.uid);
+            const userSnap = await getDoc(userRef);
+            if (!userSnap.exists() || userSnap.data().role !== 'admin') {
+                await signOut(auth);
+                window.location.href = "/auth/login.html";
+                return;
+            }
+            
             loadUsers();
         });
 
         function createTableRow(u, key) {
-            const formattedTime = formatTimeForDisplay(u.time);
+            const statusText = u.state ? 'Active' : 'Inactive/New';
+            const statusClass = u.state ? 'active' : 'inactive';
 
             return `
                 <tr>
                     <td>
                         <div class="d-flex align-items-center">
                             <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'User')}&background=${u.state ? '6366f1' : 'ef4444'}&color=fff" class="user-avatar me-2" style="width: 40px; height: 40px; border-radius: 50%;">
-                            <strong>${u.name || 'غير محدد'} ${key === loggedInUserId ? '<span class="badge bg-success ms-2">أنت</span>' : ''}</strong>
+                            <strong>${u.name || 'Not specified'}</strong>
                         </div>
                     </td>
-                    <td>${u.email || '-'}</td>
                     <td>${u.phone || '-'}</td>
-                    <td>${u.role === 'admin' ? '<span class="badge bg-danger">مشرف</span>' : '<span class="badge bg-primary">عميل</span>'}</td>
-                    <td>${u.date ? new Date(u.date).toLocaleDateString() : '-'}</td>
-                    <td>${u.time ? formattedTime : '-'}</td>
-
-                    <td>${u.state ? '<span class="badge badge-custom active">نشط</span>' : '<span class="badge badge-custom inactive">محظور</span>'}</td>
+                    <td>${u.date ? new Date(u.date).toLocaleDateString('en-US') : '-'}</td>
+                    <td><span class="badge badge-custom ${statusClass}">${statusText}</span></td>
                     <td>
                         <div class="d-flex align-items-center gap-2">
                             <label class="switch">
@@ -87,7 +74,7 @@
                             <button class="btn btn-sm btn-light" onclick="openUserModal('${key}')">
                                 <i class="fas fa-eye text-primary"></i>
                             </button>
-                            <button class="btn btn-sm btn-light" onclick="deleteUser('${key}')" ${key === loggedInUserId && u.role === 'admin' ? 'title="حذف المشرف الحالي سيؤدي لتسجيل الخروج"' : ''}>
+                            <button class="btn btn-sm btn-light" onclick="deleteUser('${key}')">
                                 <i class="fas fa-trash text-danger"></i>
                             </button>
                         </div>
@@ -97,64 +84,40 @@
         }
 
         function loadUsers() {
-            const tbodyAll = document.querySelector('#usersTableAll tbody');
-            const tbodyAdmins = document.querySelector('#usersTableAdmins tbody');
             const tbodyClients = document.querySelector('#usersTableClients tbody');
             
-            tbodyAll.innerHTML = '<tr><td colspan="8" class="text-center">جاري تحميل البيانات...</td></tr>';
-            tbodyAdmins.innerHTML = '<tr><td colspan="8" class="text-center">جاري تحميل البيانات...</td></tr>';
-            tbodyClients.innerHTML = '<tr><td colspan="8" class="text-center">جاري تحميل البيانات...</td></tr>';
+            tbodyClients.innerHTML = '<tr><td colspan="5" class="text-center">Loading data...</td></tr>';
 
             const usersRef = collection(db, "users");
 
             onSnapshot(usersRef, (snapshot) => {
-                tbodyAll.innerHTML = '';
-                tbodyAdmins.innerHTML = '';
                 tbodyClients.innerHTML = '';
 
-                let totalUsers = 0;
-                let adminCount = 0;
                 let clientCount = 0;
                 
                 if (snapshot.size === 0) {
-                    tbodyAll.innerHTML = '<tr><td colspan="8" class="text-center">لا يوجد مستخدمين</td></tr>';
-                    tbodyAdmins.innerHTML = '<tr><td colspan="8" class="text-center">لا يوجد مشرفون</td></tr>';
-                    tbodyClients.innerHTML = '<tr><td colspan="8" class="text-center">لا يوجد عملاء</td></tr>';
+                    tbodyClients.innerHTML = '<tr><td colspan="5" class="text-center">No clients found</td></tr>';
                 } else {
                     snapshot.forEach((doc) => {
                         const u = doc.data();
                         const key = doc.id;
                         
-                        currentUserData[key] = u;
-                        const rowHTML = createTableRow(u, key);
-
-                        tbodyAll.insertAdjacentHTML('beforeend', rowHTML);
-                        totalUsers++;
-
-                        if (u.role === 'admin') {
-                            tbodyAdmins.insertAdjacentHTML('beforeend', rowHTML);
-                            adminCount++;
-                        } else {
+                        if (u.role !== 'admin') {
+                            currentUserData[key] = u;
+                            const rowHTML = createTableRow(u, key);
                             tbodyClients.insertAdjacentHTML('beforeend', rowHTML);
                             clientCount++;
                         }
                     });
                 }
                 
-                if (adminCount === 0 && snapshot.size > 0) {
-                    tbodyAdmins.innerHTML = '<tr><td colspan="8" class="text-center">لا يوجد مشرفون</td></tr>';
-                }
-                if (clientCount === 0 && snapshot.size > 0) {
-                    tbodyClients.innerHTML = '<tr><td colspan="8" class="text-center">لا يوجد عملاء</td></tr>';
+                if (clientCount === 0) {
+                    tbodyClients.innerHTML = '<tr><td colspan="5" class="text-center">No clients found</td></tr>';
                 }
 
-                document.getElementById('total-users-count').textContent = `(${totalUsers})`;
-                document.getElementById('admin-count').textContent = `(${adminCount})`;
                 document.getElementById('client-count').textContent = `(${clientCount})`;
             }, (error) => {
-                const errorRow = `<tr><td colspan="8" class="text-center text-danger">خطأ: ${error.message}</td></tr>`;
-                tbodyAll.innerHTML = errorRow;
-                tbodyAdmins.innerHTML = errorRow;
+                const errorRow = `<tr><td colspan="5" class="text-center text-danger">Error: ${error.message}</td></tr>`;
                 tbodyClients.innerHTML = errorRow;
             });
         }
@@ -166,26 +129,18 @@
                     state: newState
                 });
             } catch (e) {
-                alert("خطأ في تحديث الحالة: " + e.message);
+                alert("Error updating status: " + e.message);
             }
         };
 
         window.deleteUser = async function(key) {
-            if (confirm('هل أنت متأكد من حذف هذا المستخدم نهائيًا؟ لن تستطيع التراجع عن هذا الإجراء.')) {
+            if (confirm('Are you sure you want to permanently delete this client? This action cannot be undone.')) {
                 try {
-                    const userToDelete = currentUserData[key];
-                    const isDeletingSelfAdmin = (key === loggedInUserId && userToDelete && userToDelete.role === 'admin');
-
                     const userRef = doc(db, "users", key);
                     await deleteDoc(userRef);
-
-                    if (isDeletingSelfAdmin) {
-                        await signOut(auth);
-                        window.location.href = "/auth/login.html"; 
-                    }
-
+                    alert("Client deleted successfully.");
                 } catch (e) {
-                    alert("فشل الحذف: " + e.message);
+                    alert("Deletion failed: " + e.message);
                 }
             }
         };
@@ -194,35 +149,36 @@
             const u = currentUserData[key];
             if (!u) return;
 
-            const formattedTime = formatTimeForDisplay(u.time);
+            const statusText = u.state ? 'Active' : 'Inactive/New';
+            const statusClass = u.state ? 'active' : 'inactive';
+            const buttonText = u.state ? 'Deactivate/Block' : 'Activate Client';
 
             document.getElementById('modalAvatar').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'User')}&background=${u.state ? '6366f1' : 'ef4444'}&color=fff`;
-            document.getElementById('modalName').textContent = u.name || 'غير محدد';
-            document.getElementById('modalEmail').textContent = u.email || '-';
+            document.getElementById('modalName').textContent = u.name || 'Not specified';
             document.getElementById('modalPhone').textContent = u.phone || '-';
-            document.getElementById('modalOrders').textContent = (u.ordersCount || 0) + ' طلب';
-            document.getElementById('modalRole').textContent = u.role === 'admin' ? 'مشرف' : 'عميل';
-            document.getElementById('modalDate').textContent = u.date ? new Date(u.date).toLocaleDateString() : '-';
-            document.getElementById('modalTime').textContent = formattedTime;
+            document.getElementById('modalDate').textContent = u.date ? new Date(u.date).toLocaleDateString('en-US') : '-';
             
             const statusEl = document.getElementById('modalStatus');
-            statusEl.textContent = u.state ? 'نشط' : 'محظور';
-            statusEl.className = 'badge badge-custom ' + (u.state ? 'active' : 'inactive');
+            statusEl.textContent = statusText;
+            statusEl.className = 'badge badge-custom ' + statusClass;
             
-            const banBtn = document.getElementById('banUserBtn');
-            banBtn.onclick = () => banUser(key);
+            const actionBtn = document.getElementById('userActionButton');
+            actionBtn.style.display = 'inline-block';
+            actionBtn.textContent = buttonText;
+            actionBtn.className = `btn btn-custom ${u.state ? 'btn-danger' : 'btn-success'}`;
+            actionBtn.onclick = () => toggleUserFromModal(key, !u.state, buttonText);
 
             userModal.show();
         };
-
-        window.banUser = async function(key) {
-            if (confirm('هل أنت متأكد من حظر هذا المستخدم نهائيًا؟')) {
+        
+        window.toggleUserFromModal = async function(key, newState, buttonText) {
+            if (confirm(`Are you sure you want to ${buttonText}?`)) {
                 try {
                     const userRef = doc(db, "users", key);
-                    await updateDoc(userRef, { state: false });
+                    await updateDoc(userRef, { state: newState });
                     userModal.hide();
                 } catch (e) {
-                    alert("فشل الحظر: " + e.message);
+                    alert("Action failed: " + e.message);
                 }
             }
         };
@@ -241,7 +197,7 @@
                 <button class="mobile-menu-btn" id="mobileMenuBtn">
                     <i class="fas fa-bars"></i>
                 </button>
-                <h2 class="mb-0" id="page-title">إدارة المستخدمين</h2>
+                <h2 class="mb-0" id="page-title">إدارة العملاء</h2>
             </div>
             <div class="user-info">
                 <span>مرحباً، <strong>المشرف</strong></span>
@@ -251,84 +207,24 @@
         <div id="page-container">
             <div id="users" class="page active">
                 <div class="container-fluid">
-                    <ul class="nav nav-pills mb-4" id="userTabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="all-users-tab" data-bs-toggle="pill" data-bs-target="#all-users" type="button" role="tab">جميع المستخدمين <span id="total-users-count" class="text-primary fw-bold">(...)</span></button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="admins-tab" data-bs-toggle="pill" data-bs-target="#admins-content" type="button" role="tab">المشرفون <span id="admin-count" class="text-primary fw-bold">(...)</span></button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="clients-tab" data-bs-toggle="pill" data-bs-target="#clients-content" type="button" role="tab">العملاء <span id="client-count" class="text-primary fw-bold">(...)</span></button>
-                        </li>
-                    </ul>
+                    <div class="mb-4">
+                        <h4>العملاء <span id="client-count" class="text-primary fw-bold">(...)</span></h4>
+                    </div>
 
-                    <div class="tab-content" id="userTabsContent">
-                        
-                        <div class="tab-pane fade show active" id="all-users" role="tabpanel">
-                            <div class="card-custom">
-                                <div class="table-responsive table-responsive-custom">
-                                    <table class="table table-custom" id="usersTableAll">
-                                        <thead>
-                                            <tr>
-                                                <th>المستخدم</th>
-                                                <th>البريد</th>
-                                                <th>الهاتف</th>
-                                                <th>الدور</th>
-                                                <th>التاريخ</th>
-                                                <th>الوقت</th>
-                                                <th>الحالة</th>
-                                                <th>الإجراءات</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="tab-pane fade" id="admins-content" role="tabpanel">
-                            <div class="card-custom">
-                                <div class="table-responsive table-responsive-custom">
-                                    <table class="table table-custom" id="usersTableAdmins">
-                                        <thead>
-                                            <tr>
-                                                <th>المستخدم</th>
-                                                <th>البريد</th>
-                                                <th>الهاتف</th>
-                                                <th>الدور</th>
-                                                <th>التاريخ</th>
-                                                <th>الوقت</th>
-                                                <th>الحالة</th>
-                                                <th>الإجراءات</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="tab-pane fade" id="clients-content" role="tabpanel">
-                            <div class="card-custom">
-                                <div class="table-responsive table-responsive-custom">
-                                    <table class="table table-custom" id="usersTableClients">
-                                        <thead>
-                                            <tr>
-                                                <th>المستخدم</th>
-                                                <th>البريد</th>
-                                                <th>الهاتف</th>
-                                                <th>الدور</th>
-                                                <th>التاريخ</th>
-                                                <th>الوقت</th>
-                                                <th>الحالة</th>
-                                                <th>الإجراءات</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody></tbody>
-                                    </table>
-                                </div>
-                            </div>
+                    <div class="card-custom">
+                        <div class="table-responsive table-responsive-custom">
+                            <table class="table table-custom" id="usersTableClients">
+                                <thead>
+                                    <tr>
+                                        <th>العميل</th>
+                                        <th>الهاتف</th>
+                                        <th>تاريخ التسجيل</th>
+                                        <th>الحالة</th>
+                                        <th>الإجراءات</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -343,14 +239,9 @@
                             <div class="modal-body text-center">
                                 <img id="modalAvatar" src="" class="user-avatar mb-3" style="width:120px;height:120px;">
                                 <h4 id="modalName" class="mb-3"></h4>
-                                <p class="mb-1"><strong>البريد:</strong> <span id="modalEmail"></span></p>
                                 <p class="mb-4"><strong>الهاتف:</strong> <span id="modalPhone"></span></p>
 
                                 <div class="row mb-4 user-info-grid">
-                                    <div class="col-6 mb-3">
-                                        <p class="mb-1"><strong>الدور</strong></p>
-                                        <h5 id="modalRole" class="text-primary"></h5>
-                                    </div>
                                     <div class="col-6 mb-3">
                                         <p class="mb-1"><strong>الحالة</strong></p>
                                         <span id="modalStatus" class="badge badge-custom"></span>
@@ -359,18 +250,10 @@
                                         <p class="mb-1"><strong>تاريخ التسجيل</strong></p>
                                         <h5 id="modalDate" class="text-primary"></h5>
                                     </div>
-                                    <div class="col-6 mb-3">
-                                        <p class="mb-1"><strong>وقت التسجيل</strong></p>
-                                        <h5 id="modalTime" class="text-primary"></h5>
-                                    </div>
-                                    <div class="col-12 mb-3">
-                                        <p class="mb-1"><strong>الطلبات</strong></p>
-                                        <h5 id="modalOrders" class="text-primary"></h5>
-                                    </div>
                                 </div>
 
                                 <div class="d-flex justify-content-center gap-2">
-                                    <button id="banUserBtn" class="btn btn-custom btn-danger">حظر المستخدم</button>
+                                    <button id="userActionButton" class="btn btn-custom"></button>
                                 </div>
                             </div>
                         </div>
