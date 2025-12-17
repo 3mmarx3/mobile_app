@@ -105,7 +105,7 @@
             onSnapshot(settingsRef, (snap) => {
                 if (snap.exists()) {
                     const data = snap.data();
-                    document.getElementById('current-whatsapp').textContent = data.whatsapp ? '+20' + data.whatsapp : 'غير محدد';
+                    document.getElementById('current-whatsapp').textContent = data.whatsapp ? '' + data.whatsapp : 'غير محدد';
                     document.getElementById('new-whatsapp-input').value = data.whatsapp || '';
                 } else {
                     document.getElementById('current-whatsapp').textContent = 'غير محدد';

@@ -6,7 +6,6 @@
   <title>إنشاء حساب مشرف | ShopAdmin</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
-  
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
   <link rel="stylesheet" href="../assets/style/register.css">
 
@@ -26,43 +25,57 @@
     </div>
 
     <div class="login-body">
-      
-      <div class="error-msg" id="errorMsg" style="display: none;">يرجى التأكد من صحة البيانات.</div>
-      <div class="success-msg" id="successMsg" style="display: none;">تم إنشاء الحساب بنجاح! جاري تحويلك لصفحة تسجيل الدخول...</div>
+      <div class="error-msg" id="errorMsg" style="display: none;"></div>
+      <div class="success-msg" id="successMsg" style="display: none;"></div>
 
-      <form onsubmit="handleSignup(event)">
-        
-        <div class="form-group">
-          <i class="fas fa-user"></i>
-          <input type="text" id="fullName" class="form-control" placeholder="الاسم بالكامل" required />
-        </div>
+      <div id="signupStep">
+        <form onsubmit="sendOTP(event)">
+          <div class="form-group">
+            <i class="fas fa-user"></i>
+            <input type="text" id="fullName" class="form-control" placeholder="الاسم بالكامل" required />
+          </div>
 
-        <div class="form-group">
-          <i class="fas fa-envelope"></i>
-          <input type="email" id="email" class="form-control" placeholder="admin@example.com" required />
-        </div>
+          <div class="form-group">
+            <i class="fas fa-envelope"></i>
+            <input type="email" id="email" class="form-control" placeholder="admin@example.com" required />
+          </div>
 
-        <div class="form-group">
-          <i class="fas fa-lock"></i>
-          <input type="password" id="password" class="form-control" placeholder="اختر كلمة المرور" required />
-          <i class="fas fa-eye password-toggle" id="togglePassword" onclick="togglePass('password')"></i>
-        </div>
-        
-        <div class="form-group">
-          <i class="fas fa-lock"></i>
-          <input type="password" id="confirmPassword" class="form-control" placeholder="تأكيد كلمة المرور" required />
-          <i class="fas fa-eye password-toggle" id="toggleConfirmPassword" onclick="togglePass('confirmPassword')"></i>
-        </div>
+          <div class="form-group">
+            <i class="fas fa-lock"></i>
+            <input type="password" id="password" class="form-control" placeholder="اختر كلمة المرور" required />
+            <i class="fas fa-eye password-toggle" onclick="togglePass('password')"></i>
+          </div>
+          
+          <div class="form-group">
+            <i class="fas fa-lock"></i>
+            <input type="password" id="confirmPassword" class="form-control" placeholder="تأكيد كلمة المرور" required />
+            <i class="fas fa-eye password-toggle" onclick="togglePass('confirmPassword')"></i>
+          </div>
 
-        <button type="submit" class="btn-login">
-          <i class="fas fa-user-plus"></i> تسجيل حساب
-        </button>
+          <button type="submit" class="btn-login" id="sendBtn">
+            <i class="fas fa-paper-plane"></i> إرسال رمز التحقق
+          </button>
 
-        <div class="options" style="justify-content:center;">
-          <p>لديك حساب بالفعل؟ <a href="./login.html">تسجيل الدخول</a></p>
-        </div>
+          <div class="options" style="justify-content:center;">
+            <p>لديك حساب بالفعل؟ <a href="./login.html">تسجيل الدخول</a></p>
+          </div>
+        </form>
+      </div>
 
-      </form>
+      <div id="otpStep" style="display: none;">
+        <form onsubmit="verifyOTP(event)">
+          <h3 style="text-align:center;margin-bottom:20px;">أدخل رمز التحقق :</h3>
+          
+          <div class="form-group">
+            <i class="fas fa-key"></i>
+            <input type="text" id="otpCode" class="form-control" placeholder="أدخل رمز التحقق (6 أرقام)" maxlength="6" required />
+          </div>
+
+          <button type="submit" class="btn-login" id="verifyBtn">
+            <i class="fas fa-check"></i> تأكيد الحساب
+          </button>
+        </form>
+      </div>
 
       <div class="footer-text">
         ©️ 2025 ShopAdmin. جميع الحقوق محفوظة.
@@ -85,89 +98,121 @@
     const app = firebase.initializeApp(firebaseConfig);
     firebase.analytics();
     const auth = firebase.auth();
-    // 2. INITIALIZE FIRESTORE
     const db = firebase.firestore();
 
-    function togglePass(fieldId) {
-      const password = document.getElementById(fieldId);
-      const iconId = fieldId === 'password' ? 'togglePassword' : 'toggleConfirmPassword';
-      const icon = document.getElementById(iconId);
+    const FIXED_OTP = "012725";
+    let tempUser = null;
+    let userData = {};
 
-      password.type = password.type === 'password' ? 'text' : 'password';
-      icon.classList.toggle('fa-eye-slash');
-      icon.classList.toggle('fa-eye');
+    function togglePass(fieldId) {
+      const field = document.getElementById(fieldId);
+      field.type = field.type === 'password' ? 'text' : 'password';
     }
 
-    async function handleSignup(e) {
+    function showError(msg) {
+      document.getElementById('errorMsg').textContent = msg;
+      document.getElementById('errorMsg').style.display = 'block';
+      document.getElementById('successMsg').style.display = 'none';
+    }
+
+    function showSuccess(msg) {
+      document.getElementById('successMsg').textContent = msg;
+      document.getElementById('successMsg').style.display = 'block';
+      document.getElementById('errorMsg').style.display = 'none';
+    }
+
+    async function sendOTP(e) {
       e.preventDefault();
 
-      const fullName = document.getElementById('fullName').value;
-      const email = document.getElementById('email').value;
+      const fullName = document.getElementById('fullName').value.trim();
+      const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
       const confirmPassword = document.getElementById('confirmPassword').value;
-      const btn = document.querySelector('.btn-login');
+      const btn = document.getElementById('sendBtn');
 
       document.getElementById('errorMsg').style.display = 'none';
       document.getElementById('successMsg').style.display = 'none';
 
-      if (password !== confirmPassword) {
-        document.getElementById('errorMsg').textContent = 'كلمتا المرور غير متطابقتين!';
-        document.getElementById('errorMsg').style.display = 'block';
-        return;
-      }
-      
-      if (password.length < 6) {
-        document.getElementById('errorMsg').textContent = 'يجب أن لا تقل كلمة المرور عن 6 أحرف.';
-        document.getElementById('errorMsg').style.display = 'block';
+      if (!fullName || !email || !password || !confirmPassword) {
+        showError('يرجى ملء جميع الحقول.');
         return;
       }
 
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري الإنشاء...';
+      if (password !== confirmPassword) {
+        showError('كلمتا المرور غير متطابقتين!');
+        return;
+      }
+
+      if (password.length < 6) {
+        showError('يجب أن لا تقل كلمة المرور عن 6 أحرف.');
+        return;
+      }
+
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري المعالجة...';
+      btn.disabled = true;
 
       try {
-        // A. Create Auth User
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         const user = userCredential.user;
-        
-        await user.updateProfile({
-            displayName: fullName
-        });
 
-        // B. SAVE TO FIRESTORE AS ADMIN
-        // This is the critical part to link the user to the database
-        await db.collection('users').doc(user.uid).set({
-            id: user.uid,
-            name: fullName,
-            email: email,
-            role: 'admin', // <--- Force Role to ADMIN
-            state: true
-        });
+        await user.updateProfile({ displayName: fullName });
 
-        console.log("Signup successful and DB updated:", user.uid);
-        
-        document.getElementById('successMsg').textContent = 
-          `تم تسجيل الحساب بنجاح يا ${fullName}! جاري تحويلك لصفحة تسجيل الدخول...`;
-        document.getElementById('successMsg').style.display = 'block';
+        tempUser = user;
+        userData = { uid: user.uid, name: fullName, email: email };
 
-        setTimeout(() => {
-          window.location.href = 'login.html';
-        }, 3000);
+        document.getElementById('signupStep').style.display = 'none';
+        document.getElementById('otpStep').style.display = 'block';
+        showSuccess('تم إنشاء الحساب مؤقتاً. أدخل رمز التحقق الثابت للتفعيل.');
 
       } catch (error) {
-        console.error("Firebase Signup Error:", error.code, error.message);
-        
-        let errorMessage = 'حدث خطأ أثناء إنشاء الحساب.';
+        let msg = 'حدث خطأ أثناء إنشاء الحساب.';
         if (error.code === 'auth/email-already-in-use') {
-            errorMessage = 'هذا البريد الإلكتروني مُسجل مسبقاً.';
+          msg = 'هذا البريد الإلكتروني مُسجل مسبقاً.';
         } else if (error.code === 'auth/invalid-email') {
-            errorMessage = 'صيغة البريد الإلكتروني غير صحيحة.';
+          msg = 'صيغة البريد الإلكتروني غير صحيحة.';
+        } else if (error.code === 'auth/weak-password') {
+          msg = 'كلمة المرور ضعيفة جداً.';
         }
-        
-        document.getElementById('errorMsg').textContent = errorMessage;
-        document.getElementById('errorMsg').style.display = 'block';
+        showError(msg);
       } finally {
-        btn.innerHTML = '<i class="fas fa-user-plus"></i> تسجيل حساب';
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> إرسال رمز التحقق';
+        btn.disabled = false;
       }
+    }
+
+    async function verifyOTP(e) {
+      e.preventDefault();
+
+      const otpInput = document.getElementById('otpCode').value.trim();
+      const btn = document.getElementById('verifyBtn');
+
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التحقق...';
+      btn.disabled = true;
+
+      if (otpInput === FIXED_OTP) {
+        try {
+          await db.collection('users').doc(userData.uid).set({
+            id: userData.uid,
+            name: userData.name,
+            email: userData.email,
+            role: 'admin',
+            state: true
+          });
+
+          showSuccess(`تم تفعيل الحساب بنجاح يا ${userData.name}! جاري التحويل...`);
+
+          setTimeout(() => {
+            window.location.href = 'login.html';
+          }, 3000);
+        } catch (error) {
+          showError('حدث خطأ أثناء حفظ البيانات.');
+        }
+      } else {
+        showError('رمز التحقق غير صحيح.');
+      }
+
+      btn.innerHTML = '<i class="fas fa-check"></i> تأكيد الحساب';
+      btn.disabled = false;
     }
 
     document.querySelectorAll('input').forEach(input => {
@@ -176,6 +221,5 @@
       });
     });
   </script>
-
 </body>
 </html>
