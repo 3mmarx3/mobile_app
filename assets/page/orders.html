@@ -44,7 +44,9 @@
                                         <th><input type="checkbox" id="selectAllOrders"></th>
                                         <th>رقم الطلب</th>
                                         <th>العميل</th>
+                                        <th>رقم الموبايل</th>
                                         <th>التاريخ</th>
+                                        <th>الوقت</th>
                                         <th>العناصر</th>
                                         <th>الإجمالي</th>
                                         <th>الحالة</th>
@@ -52,7 +54,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="ordersTableBody">
-                                    <tr><td colspan="8" class="text-center">جارِ تحميل الطلبات...</td></tr>
+                                    <tr><td colspan="10" class="text-center">جارِ تحميل الطلبات...</td></tr>
                                 </tbody>
                             </table>
                             <div id="noOrdersMessage" class="text-center p-3" style="display: none;">لا توجد طلبات حاليًا.</div>
@@ -103,7 +105,6 @@
                                                 <td colspan="3" class="text-end"><strong>الإجمالي الفرعي</strong></td>
                                                 <td id="modalSubtotal">0.00 ج.م</td>
                                             </tr>
-                                         
                                             <tr>
                                                 <td colspan="3" class="text-end"><strong>الإجمالي</strong></td>
                                                 <td><strong id="modalTotal" style="color:#059669">0.00 ج.م</strong></td>
@@ -113,8 +114,7 @@
 
                                 <div class="d-flex justify-content-between align-items-center mt-4">
                                     <div class="d-flex gap-2">
-                                    <button class="btn btn-custom btn-danger" id="deleteOrderBtn">حذف الطلب</button>
-
+                                        <button class="btn btn-custom btn-danger" id="deleteOrderBtn">حذف الطلب</button>
                                     </div>
                                 </div>
                             </div>
@@ -264,6 +264,15 @@
         }
     }
 
+    function formatTime(timeStr) {
+        if (!timeStr || timeStr === 'غير متوفر') return 'غير متوفر';
+        const [hours, minutes] = timeStr.split(':').map(Number);
+        let h = hours % 12;
+        h = h ? h : 12;
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        return `${h}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+    }
+
     function createStatusSelect(orderId, currentStatus) {
         const normalizedStatus = currentStatus ? currentStatus.toLowerCase() : 'processing';
         const statuses = ['processing', 'shipped', 'delivered', 'cancelled'];
@@ -277,49 +286,20 @@
         return `<select class="status-select" onchange="updateOrderStatus('${orderId}', this.value)">${options}</select>`;
     }
 
-    function formatDateAndTime(order) {
-        if (order.date) return order.date;
-
-        let timestamp = order.Date || order.Time || order.timestamp;
-        
-        if (typeof timestamp === 'object' && timestamp !== null && 'seconds' in timestamp) {
-            timestamp = timestamp.seconds * 1000;
-        }
-
-        if (timestamp) {
-            const d = new Date(timestamp);
-            if (!isNaN(d)) {
-                const datePart = d.toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
-                const timePart = d.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
-                return `${datePart} ${timePart}`;
-            }
-        }
-        return 'غير متوفر';
-    }
-
     function getOrderNumber(order) {
-        return `#${order.number || order.id.substring(0, 8)}`;
+        return `#${order.id.slice(-8)}`;
     }
 
     function getUserName(userId) {
-        if (usersMap[userId] && usersMap[userId].name) {
-            return usersMap[userId].name;
-        }
-        return 'غير متوفر';
-    }
-
-    function getUserEmail(userId) {
-        if (usersMap[userId] && usersMap[userId].email) {
-            return usersMap[userId].email;
-        }
-        return 'غير متوفر';
+        return usersMap[userId]?.name || usersMap[userId]?.displayName || usersMap[userId]?.username || 'غير متوفر';
     }
 
     function getUserPhone(userId) {
-        if (usersMap[userId] && usersMap[userId].phone) {
-            return usersMap[userId].phone;
-        }
-        return 'غير متوفر';
+        return usersMap[userId]?.phone || usersMap[userId]?.mobile || 'غير متوفر';
+    }
+
+    function getUserEmail(userId) {
+        return usersMap[userId]?.email || 'غير متوفر';
     }
 
     function renderOrdersTable(orders) {
@@ -336,7 +316,6 @@
         noOrdersMessage.style.display = 'none';
 
         orders.forEach(order => {
-            const dateAndTime = formatDateAndTime(order);
             const orderNumber = getOrderNumber(order);
             
             const itemsList = order.items || order.state || [];
@@ -346,18 +325,23 @@
             
             const userId = order.userId || order.uId || order.uid || order.customerId;
             const userName = getUserName(userId) || order.userName || order.UserName || order.name || 'غير متوفر';
+            const userPhone = getUserPhone(userId) || order.phone || 'غير متوفر';
+
+            const orderDate = order.orderDate || 'غير متوفر';
+            const rawTime = order.orderTime || 'غير متوفر';
+            const orderTime = formatTime(rawTime);
 
             const row = `
                 <tr>
                     <td><input type="checkbox" class="row-check"></td>
                     <td><strong>${orderNumber}</strong></td>
-                    <td>${userName}</td>
-                    <td>${dateAndTime}</td>
+                    <td><strong>${userName}</strong></td>
+                    <td>${userPhone}</td>
+                    <td>${orderDate}</td>
+                    <td>${orderTime}</td>
                     <td>${itemsCount} عنصر</td>
                     <td><strong>${Number(total).toFixed(2)} ج.م</strong></td>
-                    <td>
-                        ${createStatusSelect(order.id, order.status)}
-                    </td>
+                    <td>${createStatusSelect(order.id, order.status)}</td>
                     <td style="cursor: pointer;" onclick="openOrderModal('${order.id}')">
                         عرض التفاصيل
                     </td>
@@ -387,7 +371,7 @@
             }));
             renderOrdersTable(ordersList);
         }, (error) => {
-            ordersTableBody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">خطأ في الاتصال بقاعدة البيانات.</td></tr>`;
+            ordersTableBody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">خطأ في الاتصال بقاعدة البيانات.</td></tr>`;
             noOrdersMessage.style.display = 'none';
         });
     }
@@ -446,7 +430,8 @@
         document.getElementById('modalCustomerEmail').textContent = getUserEmail(userId) || order.email || 'غير متوفر';
         document.getElementById('modalCustomerPhone').textContent = getUserPhone(userId) || order.phone || 'غير متوفر';
         
-        document.getElementById('modalShippingAddress').textContent = order.address || order.shippingAddress || order.Address || 'غير متوفر';
+        const shippingAddress = usersMap[userId]?.location || 'غير متوفر';
+        document.getElementById('modalShippingAddress').textContent = shippingAddress;
 
         const items = order.items || order.state || [];
         

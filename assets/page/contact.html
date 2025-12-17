@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>شوب أدمن - تواصل معنا</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../style/style.css">
+
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, getDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDlKhp5gKE6l5BFBOBcLv6JZB3xIOnwqDo",
+            authDomain: "shop-732bb.firebaseapp.com",
+            projectId: "shop-732bb",
+            storageBucket: "shop-732bb.firebasestorage.app",
+            messagingSenderId: "650792166626",
+            appId: "1:650792166626:web:4ae7de7821542520096abb"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                window.location.href = "/auth/login.html";
+                return;
+            }
+
+            const userRef = doc(db, "users", user.uid);
+            const userSnap = await getDoc(userRef);
+            if (!userSnap.exists() || userSnap.data().role !== 'admin') {
+                await signOut(auth);
+                window.location.href = "/auth/login.html";
+                return;
+            }
+
+            loadContactPage();
+        });
+
+        window.logout = async function() {
+            await signOut(auth);
+            window.location.href = "/auth/login.html";
+        };
+
+        function loadContactPage() {
+            const messagesRef = collection(db, "messages");
+            const q = query(messagesRef, orderBy("timestamp", "desc"));
+
+            const tbody = document.querySelector('#messages-table tbody');
+
+            onSnapshot(q, (snapshot) => {
+                tbody.innerHTML = '';
+                if (snapshot.empty) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center">لا توجد رسائل بعد</td></tr>';
+                    return;
+                }
+
+                snapshot.forEach((docSnap) => {
+                    const msg = docSnap.data();
+                    const msgId = docSnap.id;
+
+                    const date = msg.timestamp ? new Date(msg.timestamp.seconds * 1000) : new Date();
+                    const dateStr = date.toLocaleDateString('ar-EG');
+                    const timeStr = date.toLocaleTimeString('ar-EG', {hour: '2-digit', minute: '2-digit'});
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><input type="checkbox" class="row-check"></td>
+                            <td>${msg.name || 'غير محدد'}</td>
+                            <td>${msg.phone || 'غير محدد'}</td>
+                            <td>${msg.message || ''}</td>
+                            <td>${dateStr}</td>
+                            <td>${timeStr}</td>
+                        </tr>
+                    `;
+                });
+            });
+
+            const settingsRef = doc(db, "settings", "contact");
+            onSnapshot(settingsRef, (snap) => {
+                if (snap.exists()) {
+                    const data = snap.data();
+                    document.getElementById('whatsapp-number').value = data.whatsapp || '';
+                }
+            });
+
+            document.getElementById('save-whatsapp').addEventListener('click', async () => {
+                const newNumber = document.getElementById('whatsapp-number').value.trim();
+                if (newNumber) {
+                    await setDoc(doc(db, "settings", "contact"), { whatsapp: newNumber });
+                    alert('تم حفظ رقم الواتساب بنجاح');
+                }
+            });
+
+            document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+                document.getElementById('sidebar').classList.toggle('active');
+            });
+        }
+    </script>
+</head>
+<body>
+
+<div id="header">
+
+</div>
+
+    <div class="main-content">
+        <div class="header d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h2 class="mb-0" id="page-title">تواصل معنا - رسائل العملاء</h2>
+            </div>
+            <div class="user-info">
+                <span>مرحباً، <strong>المشرف العام</strong></span>
+                <img src="https://ui-avatars.com/api/?name=المشرف+العام&background=6366f1&color=fff" alt="المشرف">
+            </div>
+        </div>
+
+        <div id="page-container">
+            <div class="row mb-4 p-5">
+                <div class="col-lg-4">
+                    <div class="card-custom">
+                        <h4>رقم الواتساب في صفحة التواصل</h4>
+                        <p>يمكنك تغيير الرقم الذي يظهر في تطبيق الموبايل وصفحة التواصل</p>
+                        <div class="input-group mb-3">
+                            <span class="input-group-text">+20</span>
+                            <input type="text" id="whatsapp-number" class="form-control" placeholder="أدخل الرقم بدون المفتاح الدولي">
+                        </div>
+                        <button id="save-whatsapp" class="btn btn-primary">حفظ الرقم</button>
+                    </div>
+                </div>
+
+                <div class="col-lg-8">
+                    <div class="card-custom">
+                        <h3>رسائل العملاء</h3>
+                        <div class="table-responsive table-responsive-custom">
+                            <table class="table table-custom" id="messages-table">
+                                <thead>
+                                    <tr>
+                                        <th><input type="checkbox" class="row-check"></th>
+                                        <th>الاسم</th>
+                                        <th>رقم الموبايل</th>
+                                        <th>الرسالة</th>
+                                        <th>التاريخ</th>
+                                        <th>الوقت</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td colspan="6" class="text-center">لا توجد رسائل بعد</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script src="../app/header.js"></script>
+
+</body>
+</html>

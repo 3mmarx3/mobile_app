@@ -32,27 +32,24 @@
         let currentEditId = null;
         let currentImageDataUrl = '';
 
-        // تحقق من حالة المصادقة أولاً
         onAuthStateChanged(auth, (user) => {
             if (!user) {
-                // لو المستخدم مش مسجل دخول → روح لصفحة اللوجن
                 window.location.href = "/auth/login.html";
                 return;
             }
-            // لو مسجل → حمّل الفئات
             loadCategories();
         });
 
         function loadCategories() {
             const tbody = document.getElementById('categoriesTable');
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4">جاري تحميل الفئات...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4">جاري تحميل الفئات...</td></tr>';
 
             onSnapshot(categoriesCol, (snapshot) => {
                 tbody.innerHTML = '';
                 let count = 0;
 
                 if (snapshot.empty) {
-                    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-5 text-muted">لا توجد فئات حالياً</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-muted">لا توجد فئات حالياً</td></tr>';
                     updateCount(0);
                     return;
                 }
@@ -62,21 +59,18 @@
                     const id = docSnap.id;
                     count++;
 
+                    const imgSrc = cat.img && cat.img.trim() !== '' ? cat.img : 'https://via.placeholder.com/200';
+
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td><input type="checkbox" class="row-check"></td>
-                        <td><img src="${cat.img || 'https://via.placeholder.com/200'}" class="category-img" style="width:50px;height:50px;object-fit:cover;border-radius:8px;" alt="${cat.name || 'فئة'}"></td>
+                        <td><img src="${imgSrc}" class="category-img" style="width:50px;height:50px;object-fit:cover;border-radius:8px;" alt="${cat.name || 'فئة'}"></td>
                         <td><strong>${cat.name || ''}</strong></td>
-                        <td><code>${cat.slug || ''}</code></td>
-                        <td><span class="badge badge-custom badge-count">${cat.count || 0}</span></td>
-                        <td><span class="badge badge-custom ${cat.state ? 'active' : 'draft'}" style="background-color:${cat.state?'#10b981':'#64748b'}">${cat.state ? 'منشور' : 'مسودة'}</span></td>
                         <td>
-                            <a href="#" class="edit me-2" onclick="openEditCategory('${id}', '${escapeHtml(cat.name || '')}', '${cat.img || ''}', ${cat.state})">
-                                <i class="fas fa-edit text-primary"></i>
-                            </a>
-                            <a href="#" class="delete" onclick="deleteCategory('${id}')">
-                                <i class="fas fa-trash text-danger"></i>
-                            </a>
+                            <button class="btn btn-sm btn-outline-primary me-2" onclick="openEditCategory('${id}', '${escapeHtml(cat.name || '')}', '${cat.img || ''}')">تعديل</button>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteCategory('${id}')">حذف</button>
                         </td>
                     `;
                     tbody.appendChild(row);
@@ -84,7 +78,7 @@
 
                 updateCount(count);
             }, (error) => {
-                tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">خطأ في تحميل البيانات: ${error.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-4">خطأ في تحميل البيانات: ${error.message}</td></tr>`;
                 updateCount(0);
             });
         }
@@ -93,7 +87,6 @@
             document.querySelector('.page-header h2').textContent = `جميع الفئات (${count})`;
         }
 
-        // دالة لتجنب مشاكل XSS عند تمرير النصوص في onclick
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
@@ -103,7 +96,6 @@
         window.openAddCategoryModal = function() {
             document.getElementById('catModalTitle').textContent = 'إضافة فئة جديدة';
             document.getElementById('catName').value = '';
-            document.getElementById('catStatus').checked = true;
             document.getElementById('imagePreview').style.display = 'none';
             document.getElementById('catImage').value = '';
             document.getElementById('previewImg').src = '';
@@ -112,14 +104,13 @@
             categoryModal.show();
         };
 
-        window.openEditCategory = function(id, name, img, state) {
+        window.openEditCategory = function(id, name, img) {
             currentEditId = id;
             currentImageDataUrl = img || '';
             document.getElementById('catModalTitle').textContent = 'تعديل الفئة';
             document.getElementById('catName').value = name;
-            document.getElementById('catStatus').checked = state;
 
-            if (img) {
+            if (img && img.trim() !== '') {
                 document.getElementById('previewImg').src = img;
                 document.getElementById('imagePreview').style.display = 'block';
             } else {
@@ -147,8 +138,6 @@
                 return;
             }
 
-            const state = document.getElementById('catStatus').checked;
-
             let imgDataUrl = currentImageDataUrl;
 
             const fileInput = document.getElementById('catImage');
@@ -160,7 +149,7 @@
                     performSave(imgDataUrl);
                 };
                 reader.readAsDataURL(file);
-                return; // ننتظر حتى يتم قراءة الصورة
+                return;
             }
 
             performSave(imgDataUrl);
@@ -168,25 +157,20 @@
 
         async function performSave(imgDataUrl) {
             const name = document.getElementById('catName').value.trim();
-            const slug = name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]/g, '');
 
             const categoryData = {
                 name: name,
-                slug: slug,
                 img: imgDataUrl || '',
-                state: document.getElementById('catStatus').checked,
             };
 
             try {
                 if (currentEditId) {
                     await updateDoc(doc(db, "categories", currentEditId), categoryData);
                 } else {
-                    categoryData.count = 0;
                     await addDoc(categoriesCol, categoryData);
                 }
                 categoryModal.hide();
             } catch (e) {
-                console.error(e);
                 alert("حدث خطأ أثناء الحفظ: " + e.message);
             }
         }
@@ -198,7 +182,6 @@
             currentImageDataUrl = '';
         };
 
-        // رفع الصورة
         document.getElementById('dropZone').addEventListener('click', () => document.getElementById('catImage').click());
         document.getElementById('catImage').addEventListener('change', e => {
             if (e.target.files[0]) {
@@ -212,7 +195,6 @@
             }
         });
 
-        // زر القائمة الجانبية على الموبايل
         document.getElementById('mobileMenuBtn')?.addEventListener('click', () => {
             document.getElementById('sidebar')?.classList.toggle('active');
         });
@@ -250,10 +232,8 @@
                                         <th><input type="checkbox" id="selectAllTop"></th>
                                         <th>الصورة</th>
                                         <th>الاسم</th>
-                                        <th>الرابط</th>
-                                        <th>المنتجات</th>
-                                        <th>الحالة</th>
-                                        <th>الإجراءات</th>
+                                        <th>تعديل</th>
+                                        <th>حذف</th>
                                     </tr>
                                 </thead>
                                 <tbody id="categoriesTable"></tbody>
@@ -262,7 +242,6 @@
                     </div>
                 </div>
 
-                <!-- مودال إضافة/تعديل فئة -->
                 <div class="modal modal-custom fade" id="categoryModal" tabindex="-1">
                     <div class="modal-dialog">
                         <div class="modal-content">
@@ -288,11 +267,6 @@
                                         <img id="previewImg" src="" alt="معاينة" style="max-width:200px;border-radius:8px;">
                                         <button type="button" class="remove-img" onclick="removeCatImage()">×</button>
                                     </div>
-                                </div>
-
-                                <div class="form-check mb-3">
-                                    <input class="form-check-input" type="checkbox" id="catStatus" checked>
-                                    <label class="form-check-label" for="catStatus">نشر الفئة فوراً</label>
                                 </div>
                             </div>
                             <div class="modal-footer">

@@ -156,6 +156,10 @@
             document.getElementById('modalAvatar').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'User')}&background=${u.state ? '6366f1' : 'ef4444'}&color=fff`;
             document.getElementById('modalName').textContent = u.name || 'Not specified';
             document.getElementById('modalPhone').textContent = u.phone || '-';
+            document.getElementById('modalEmail').textContent = u.email || '-';
+            document.getElementById('modalLocation').textContent = u.location || '-';
+            document.getElementById('modalPlaceName').textContent = u.placeName || '-';
+            document.getElementById('modalOrdersCount').textContent = u.ordersCount || 0;
             document.getElementById('modalDate').textContent = u.date ? new Date(u.date).toLocaleDateString('en-US') : '-';
             
             const statusEl = document.getElementById('modalStatus');
@@ -237,9 +241,13 @@
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body text-center">
-                                <img id="modalAvatar" src="" class="user-avatar mb-3" style="width:120px;height:120px;">
+                                <img id="modalAvatar" src="" class="user-avatar mb-3" style="width:120px;height:120px;border-radius:50%;">
                                 <h4 id="modalName" class="mb-3"></h4>
-                                <p class="mb-4"><strong>الهاتف:</strong> <span id="modalPhone"></span></p>
+                                <p class="mb-2"><strong>الهاتف:</strong> <span id="modalPhone"></span></p>
+                                <p class="mb-2"><strong>البريد الإلكتروني:</strong> <span id="modalEmail"></span></p>
+                                <p class="mb-2"><strong>الموقع:</strong> <span id="modalLocation"></span></p>
+                                <p class="mb-2"><strong>اسم المكان:</strong> <span id="modalPlaceName"></span></p>
+                                <p class="mb-4"><strong>عدد الطلبات:</strong> <span id="modalOrdersCount"></span></p>
 
                                 <div class="row mb-4 user-info-grid">
                                     <div class="col-6 mb-3">

@@ -22,25 +22,25 @@
       border-radius: 8px;
     }
     .form-grid-custom {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 15px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
     }
     .badge-custom {
-        padding: 0.5em 0.7em;
-        border-radius: 0.35rem;
-        font-weight: 600;
+      padding: 0.5em 0.7em;
+      border-radius: 0.35rem;
+      font-weight: 600;
     }
     .low-stock {
-        background-color: #fca5a5;
-        color: #b91c1c;
+      background-color: #fca5a5;
+      color: #b91c1c;
     }
   </style>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
-    import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+    import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, increment } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyDlKhp5gKE6l5BFBOBcLv6JZB3xIOnwqDo",
@@ -74,14 +74,14 @@
     }
 
     function loadProducts() {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4">جاري تحميل المنتجات...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4">جاري تحميل المنتجات...</td></tr>';
 
         onSnapshot(productsCol, (snapshot) => {
             tbody.innerHTML = '';
             let count = 0;
 
             if (snapshot.empty) {
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-5 text-muted">لا توجد منتجات حالياً</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center py-5 text-muted">لا توجد منتجات حالياً</td></tr>';
                 updateCount(0);
                 return;
             }
@@ -100,15 +100,13 @@
                     </td>
                     <td><strong>${product.name || ''}</strong></td>
                     <td>${product.category || ''}</td>
-                    <td><strong>$${(product.price || 0).toFixed(2)}</strong></td>
+                    <td><strong>${(product.price || 0).toFixed(2)} ج.م</strong></td>
                     <td><span class="badge badge-custom ${lowStockClass}">${product.stock || 0}</span></td>
                     <td>
-                        <a href="#" class="edit me-2" onclick="openEditModal('${id}', '${escapeHtml(product.name || '')}', '${escapeHtml(product.category || '')}', ${product.price || 0}, ${product.stock || 0})">
-                            <i class="fas fa-pen text-primary"></i>
-                        </a>
-                        <a href="#" class="delete" onclick="deleteProduct('${id}', '${escapeHtml(product.name || '')}')">
-                            <i class="fas fa-trash text-danger"></i>
-                        </a>
+                        <button class="btn btn-sm btn-outline-primary me-2" onclick="openEditModal('${id}', '${escapeHtml(product.name || '')}', '${escapeHtml(product.category || '')}', ${product.price || 0}, ${product.stock || 0})">تعديل</button>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteProduct('${id}', '${escapeHtml(product.name || '')}')">حذف</button>
                     </td>
                 `;
                 tbody.appendChild(row);
@@ -116,7 +114,7 @@
 
             updateCount(count);
         }, (error) => {
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">خطأ في تحميل البيانات: ${error.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">خطأ في تحميل البيانات: ${error.message}</td></tr>`;
             updateCount(0);
         });
     }
@@ -159,13 +157,11 @@
                 category: category,
                 price: price,
                 stock: stock,
-                // يمكنك إضافة حقول أخرى تحتاج للتحديث هنا
             });
             alert("تم حفظ التعديلات بنجاح 🎉");
             editModal.hide();
         } catch (e) {
-            console.error("Error updating document: ", e);
-            alert("حدث خطأ أثناء التعديل: " + e.message + " (تأكد من صلاحيات المشرف)");
+            alert("حدث خطأ أثناء التعديل: " + e.message);
         } finally {
             saveBtn.textContent = originalBtnText;
             saveBtn.disabled = false;
@@ -178,14 +174,13 @@
                 await deleteDoc(doc(db, "products", id));
                 alert(`تم حذف المنتج "${name}" بنجاح.`);
             } catch (e) {
-                console.error("Error deleting document: ", e);
-                alert("فشل الحذف: " + e.message + " (تأكد من صلاحيات المشرف)");
+                alert("فشل الحذف: " + e.message);
             }
         }
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-        document.getElementById("mobileMenuBtn").addEventListener("click", () => {
+        document.getElementById("mobileMenuBtn")?.addEventListener("click", () => {
             document.getElementById("sidebar")?.classList.toggle("active");
         });
 
@@ -193,7 +188,6 @@
             document.querySelectorAll(".row-check").forEach(cb => cb.checked = e.target.checked);
         });
     });
-
   </script>
 </head>
 <body>
@@ -234,11 +228,11 @@
                   <th>الفئة</th>
                   <th>السعر</th>
                   <th>المخزون</th>
-                  <th>الإجراءات</th>
+                  <th>تعديل</th>
+                  <th>حذف</th>
                 </tr>
               </thead>
-              <tbody id="productsTableBody">
-                 </tbody>
+              <tbody id="productsTableBody"></tbody>
             </table>
           </div>
         </div>
@@ -255,31 +249,29 @@
             </div>
 
             <div class="modal-body">
-              <form id="editForm">
-                <div class="form-grid-custom mb-3">
+              <div class="form-grid-custom mb-3">
 
-                  <div class="form-group">
-                    <label class="form-label">اسم المنتج *</label>
-                    <input type="text" id="editName" class="form-control" required>
-                  </div>
-
-                  <div class="form-group">
-                    <label class="form-label">الفئة *</label>
-                    <input type="text" id="editCategory" class="form-control" required>
-                  </div>
-
-                  <div class="form-group">
-                    <label class="form-label">السعر ($) *</label>
-                    <input type="number" step="0.01" id="editPrice" class="form-control" required>
-                  </div>
-
-                  <div class="form-group">
-                    <label class="form-label">المخزون *</label>
-                    <input type="number" id="editStock" class="form-control" required>
-                  </div>
-
+                <div class="form-group">
+                  <label class="form-label">اسم المنتج *</label>
+                  <input type="text" id="editName" class="form-control" required>
                 </div>
-              </form>
+
+                <div class="form-group">
+                  <label class="form-label">الفئة *</label>
+                  <input type="text" id="editCategory" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">السعر</label>
+                  <input type="number" step="0.01" id="editPrice" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">المخزون *</label>
+                  <input type="number" id="editStock" class="form-control" required>
+                </div>
+
+              </div>
             </div>
 
             <div class="modal-footer">

@@ -50,12 +50,20 @@
             window.location.href = "/auth/login.html";
         };
 
-        async function loadDashboardData() {
+        function formatTime(timeStr) {
+            if (!timeStr || timeStr === 'غير محدد') return 'غير محدد';
+            const [hours, minutes, seconds] = timeStr.split(':').map(Number);
+            let h = hours % 12;
+            h = h ? h : 12;
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            return `${h}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+        }
+
+        function loadDashboardData() {
             const today = new Date();
             const todayStr = today.toISOString().split('T')[0];
 
             const ordersRef = collection(db, "orders");
-            const productsRef = collection(db, "products");
             const usersRef = collection(db, "users");
 
             onSnapshot(usersRef, (snapshot) => {
@@ -68,125 +76,115 @@
             });
 
             const recentTbody = document.querySelector('#recent-orders tbody');
-            const topTbody = document.querySelector('#top-products tbody');
 
-            onSnapshot(ordersRef, async (snapshot) => {
+            function renderDashboard(snapshot) {
                 let todaySales = 0;
-                let totalOrders = 0;
+                let totalSales = 0;
                 let pendingCount = 0;
                 const recentOrdersList = [];
                 const userNames = {};
+                const userPhones = {};
 
                 snapshot.forEach((doc) => {
                     const order = doc.data();
                     order.id = doc.id;
 
-                    totalOrders++;
+                    const statusLower = (order.status || '').toLowerCase();
 
-                    if (order.date && order.date.includes(todayStr)) {
-                        todaySales += order.totalPrice || order.total || 0;
+                    if (statusLower === 'pending' || statusLower === 'processing') {
+                        pendingCount++;
                     }
 
-                    if (order.status === 'pending' || order.status === 'processing') {
-                        pendingCount++;
+                    const orderTotal = order.totalPrice || order.total || 0;
+
+                    const orderDateStr = order.orderDate || (order.date ? order.date.split(' ')[0] : todayStr);
+                    if (orderDateStr === todayStr && statusLower === 'delivered') {
+                        todaySales += orderTotal;
+                    }
+
+                    if (statusLower === 'delivered') {
+                        totalSales += orderTotal;
                     }
 
                     recentOrdersList.push(order);
 
                     if (order.userId && !userNames[order.userId]) {
                         userNames[order.userId] = 'جاري التحميل...';
+                        userPhones[order.userId] = 'جاري التحميل...';
                     }
                 });
 
                 if (Object.keys(userNames).length > 0) {
                     const userPromises = Object.keys(userNames).map(uid => getDoc(doc(db, "users", uid)));
-                    const userSnaps = await Promise.all(userPromises);
-                    userSnaps.forEach((snap, index) => {
-                        const uid = Object.keys(userNames)[index];
-                        if (snap.exists()) {
-                            const uData = snap.data();
-                            userNames[uid] = uData.name || uData.displayName || uData.username || 'غير محدد';
-                        } else {
-                            userNames[uid] = 'غير محدد';
-                        }
+                    Promise.all(userPromises).then(userSnaps => {
+                        userSnaps.forEach((snap, index) => {
+                            const uid = Object.keys(userNames)[index];
+                            if (snap.exists()) {
+                                const uData = snap.data();
+                                userNames[uid] = uData.name || uData.displayName || uData.username || 'غير محدد';
+                                userPhones[uid] = uData.phone || uData.mobile || 'غير محدد';
+                            } else {
+                                userNames[uid] = 'غير محدد';
+                                userPhones[uid] = 'غير محدد';
+                            }
+                        });
+                        renderRecentOrders();
                     });
-                }
-
-                recentOrdersList.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-                const latestFive = recentOrdersList.slice(0, 5);
-
-                document.querySelectorAll('.stat-number')[0].textContent = todaySales.toLocaleString();
-                document.querySelectorAll('.stat-number')[1].textContent = totalOrders;
-                document.querySelectorAll('small')[1].textContent = pendingCount + ' قيد الشحن';
-
-                recentTbody.innerHTML = '';
-                if (latestFive.length === 0) {
-                    recentTbody.innerHTML = '<tr><td colspan="5" class="text-center">لا توجد طلبات بعد</td></tr>';
                 } else {
-                    latestFive.forEach((order) => {
-                        const customerName = order.customerName || order.name || userNames[order.userId] || order.userName || 'غير محدد';
-                        const statusText = order.status === 'delivered' ? 'تم التسليم' :
-                                          order.status === 'shipped' ? 'تم الشحن' :
-                                          order.status === 'processing' ? 'قيد المعالجة' : 'قيد الانتظار';
-                        const statusClass = order.status === 'delivered' ? 'delivered' :
-                                           order.status === 'shipped' ? 'shipped' : 'pending';
-
-                        recentTbody.innerHTML += `
-                            <tr>
-                                <td><input type="checkbox" class="row-check"></td>
-                                <td>#${order.id.slice(-6)}</td>
-                                <td>${customerName}</td>
-                                <td><span class="badge badge-custom ${statusClass}">${statusText}</span></td>
-                                <td>${(order.totalPrice || order.total || 0).toLocaleString()} ج.م</td>
-                            </tr>
-                        `;
-                    });
+                    renderRecentOrders();
                 }
-            });
 
-            onSnapshot(productsRef, (snapshot) => {
-                const salesMap = {};
-                snapshot.forEach((doc) => {
-                    const p = doc.data();
-                    salesMap[doc.id] = { name: p.name || 'غير معروف', sales: 0, revenue: 0 };
-                });
-
-                onSnapshot(ordersRef, (orderSnap) => {
-                    orderSnap.forEach((orderDoc) => {
-                        const order = orderDoc.data();
-                        if (order.items) {
-                            order.items.forEach((item) => {
-                                const pid = item.productId || item.id;
-                                if (salesMap[pid]) {
-                                    const qty = item.quantity || item.count || 1;
-                                    const price = item.price || 0;
-                                    salesMap[pid].sales += qty;
-                                    salesMap[pid].revenue += qty * price;
-                                }
-                            });
-                        }
+                function renderRecentOrders() {
+                    recentOrdersList.sort((a, b) => {
+                        const dateA = a.orderDate || a.date || '';
+                        const dateB = b.orderDate || b.date || '';
+                        return dateB.localeCompare(dateA);
                     });
 
-                    const top = Object.values(salesMap)
-                        .sort((a, b) => b.revenue - a.revenue)
-                        .slice(0, 4);
+                    const latestFive = recentOrdersList.slice(0, 5);
 
-                    topTbody.innerHTML = '';
-                    if (top.length === 0) {
-                        topTbody.innerHTML = '<tr><td colspan="3" class="text-center">لا توجد مبيعات بعد</td></tr>';
+                    document.querySelectorAll('.stat-number')[0].textContent = todaySales.toLocaleString();
+                    document.querySelectorAll('.stat-number')[1].textContent = totalSales.toLocaleString();
+                    document.querySelectorAll('small')[1].textContent = pendingCount + ' قيد الشحن';
+
+                    recentTbody.innerHTML = '';
+                    if (latestFive.length === 0) {
+                        recentTbody.innerHTML = '<tr><td colspan="7" class="text-center">لا توجد طلبات بعد</td></tr>';
                     } else {
-                        top.forEach((p) => {
-                            topTbody.innerHTML += `
+                        latestFive.forEach((order) => {
+                            const userId = order.userId;
+                            const customerName = userNames[userId] || order.customerName || order.name || 'غير محدد';
+                            const customerPhone = userPhones[userId] || 'غير محدد';
+
+                            const statusLower = (order.status || '').toLowerCase();
+                            const statusText = statusLower === 'delivered' ? 'تم التسليم' :
+                                              statusLower === 'shipped' ? 'تم الشحن' :
+                                              statusLower === 'processing' ? 'قيد المعالجة' : 'قيد الانتظار';
+                            const statusClass = statusLower === 'delivered' ? 'delivered' :
+                                               statusLower === 'shipped' ? 'shipped' : 'pending';
+
+                            const orderDate = order.orderDate || (order.date ? order.date.split(' ')[0] : 'غير محدد');
+                            const rawTime = order.orderTime || (order.date ? order.date.split(' ')[1] : 'غير محدد');
+                            const orderTime = formatTime(rawTime);
+
+                            recentTbody.innerHTML += `
                                 <tr>
-                                    <td>${p.name}</td>
-                                    <td>${p.sales}</td>
-                                    <td>${p.revenue.toLocaleString()} ج.م</td>
+                                    <td><input type="checkbox" class="row-check"></td>
+                                    <td>#${order.id.slice(-6)}</td>
+                                    <td><strong>${customerName}</strong></td>
+                                    <td>${customerPhone}</td>
+                                    <td>${orderDate}</td>
+                                    <td>${orderTime}</td>
+                                    <td><span class="badge badge-custom ${statusClass}">${statusText}</span></td>
+                                    <td>${(order.totalPrice || order.total || 0).toLocaleString()} ج.م</td>
                                 </tr>
                             `;
                         });
                     }
-                });
-            });
+                }
+            }
+
+            onSnapshot(ordersRef, renderDashboard);
 
             document.getElementById('mobileMenuBtn').addEventListener('click', () => {
                 document.getElementById('sidebar').classList.toggle('active');
@@ -244,7 +242,7 @@
                                 <div>
                                     <h3 style="color:#6b7280;margin-bottom:0.5rem">مبيعات اليوم</h3>
                                     <div class="stat-number">0</div>
-                                    <small style="color:#10b981"> + اليوم</small>
+                                    <small style="color:#10b981">فقط الطلبات المُسلمة</small>
                                 </div>
                                 <i class="fas fa-dollar-sign fa-3x" style="color:#e0e7ff;opacity:0.7"></i>
                             </div>
@@ -254,7 +252,7 @@
                         <div class="card-custom">
                             <div class="d-flex justify-content-between align-items-center">
                                 <div>
-                                    <h3 style="color:#6b7280;margin-bottom:0.5rem">طلبات جديدة</h3>
+                                    <h3 style="color:#6b7280;margin-bottom:0.5rem">إجمالي المبيعات</h3>
                                     <div class="stat-number">0</div>
                                     <small style="color:#f59e0b"> قيد الشحن</small>
                                 </div>
@@ -268,7 +266,7 @@
                                 <div>
                                     <h3 style="color:#6b7280;margin-bottom:0.5rem">إجمالي العملاء</h3>
                                     <div class="stat-number">0</div>
-                                    <small style="color:#10b981"> هذا الشهر</small>
+                                    <small style="color:#10b981">غير المشرفين</small>
                                 </div>
                                 <i class="fas fa-users fa-3x" style="color:#dbeafe;opacity:0.7"></i>
                             </div>
@@ -277,7 +275,7 @@
                 </div>
 
                 <div class="row">
-                    <div class="col-lg-8 mb-3">
+                    <div class="col-12 mb-3">
                         <div class="card-custom">
                             <h3>الطلبات الحديثة</h3>
                             <div class="table-responsive table-responsive-custom">
@@ -287,32 +285,15 @@
                                             <th><input type="checkbox" class="row-check"></th>
                                             <th>رقم الطلب</th>
                                             <th>العميل</th>
+                                            <th>الموبايل</th>
+                                            <th>التاريخ</th>
+                                            <th>الوقت</th>
                                             <th>الحالة</th>
                                             <th>المبلغ</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <tr><td colspan="5" class="text-center">لا توجد طلبات بعد</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-lg-4 mb-3">
-                        <div class="card-custom">
-                            <h3>المنتجات الأكثر مبيعاً</h3>
-                            <div class="table-responsive table-responsive-custom">
-                                <table class="table table-custom" id="top-products">
-                                    <thead>
-                                        <tr>
-                                            <th>المنتج</th>
-                                            <th>المبيعات</th>
-                                            <th>الإيرادات</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr><td colspan="3" class="text-center">لا توجد مبيعات بعد</td></tr>
+                                        <tr><td colspan="8" class="text-center">لا توجد طلبات بعد</td></tr>
                                     </tbody>
                                 </table>
                             </div>
