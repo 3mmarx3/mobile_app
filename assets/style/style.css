@@ -548,3 +548,8 @@ a.btn.btn-custom.btn-primary {
     border-radius: 30px !important;
 }
 
+
+
+button.btn-close {
+    margin: 0 !important;
+}

@@ -13,6 +13,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-storage.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDlKhp5gKE6l5BFBOBcLv6JZB3xIOnwqDo",
@@ -26,11 +27,13 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        const storage = getStorage(app);
         const categoriesCol = collection(db, 'categories');
 
         const categoryModal = new bootstrap.Modal(document.getElementById('categoryModal'));
         let currentEditId = null;
-        let currentImageDataUrl = '';
+        let currentImageUrl = '';
+        let selectedFile = null;
 
         onAuthStateChanged(auth, (user) => {
             if (!user) {
@@ -42,14 +45,14 @@
 
         function loadCategories() {
             const tbody = document.getElementById('categoriesTable');
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-4">جاري تحميل الفئات...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4">جاري تحميل الفئات...</td></tr>';
 
             onSnapshot(categoriesCol, (snapshot) => {
                 tbody.innerHTML = '';
                 let count = 0;
 
                 if (snapshot.empty) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-5 text-muted">لا توجد فئات حالياً</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-5 text-muted">لا توجد فئات حالياً</td></tr>';
                     updateCount(0);
                     return;
                 }
@@ -59,18 +62,18 @@
                     const id = docSnap.id;
                     count++;
 
-                    const imgSrc = cat.img && cat.img.trim() !== '' ? cat.img : 'https://via.placeholder.com/200';
+                    const imgSrc = cat.img && cat.img.trim() !== '' ? cat.img : 'https://via.placeholder.com/200?text=لا+توجد+صورة';
 
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td><input type="checkbox" class="row-check"></td>
-                        <td><img src="${imgSrc}" class="category-img" style="width:50px;height:50px;object-fit:cover;border-radius:8px;" alt="${cat.name || 'فئة'}"></td>
-                        <td><strong>${cat.name || ''}</strong></td>
+                        <td><img src="${imgSrc}" class="category-img" style="width:60px;height:60px;object-fit:cover;border-radius:8px;" alt="${escapeHtml(cat.name || 'فئة')}"></td>
+                        <td><strong>${escapeHtml(cat.name || 'غير محدد')}</strong></td>
                         <td>
-                            <button class="btn btn-sm btn-outline-primary me-2" onclick="openEditCategory('${id}', '${escapeHtml(cat.name || '')}', '${cat.img || ''}')">تعديل</button>
+                            <button class="btn btn-sm btn-outline-primary me-2" onclick="openEditCategory('${id}', '${escapeHtml(cat.name || '')}', '${escapeHtml(cat.img || '')}')">تعديل</button>
                         </td>
                         <td>
-                            <button class="btn btn-sm btn-outline-danger" onclick="deleteCategory('${id}')">حذف</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteCategory('${id}', '${escapeHtml(cat.img || '')}')">حذف</button>
                         </td>
                     `;
                     tbody.appendChild(row);
@@ -78,16 +81,18 @@
 
                 updateCount(count);
             }, (error) => {
-                tbody.innerHTML = `<tr><td colspan="4" class="text-center text-danger py-4">خطأ في تحميل البيانات: ${error.message}</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-4">خطأ في تحميل البيانات: ${escapeHtml(error.message)}</td></tr>`;
                 updateCount(0);
             });
         }
 
         function updateCount(count) {
-            document.querySelector('.page-header h2').textContent = `جميع الفئات (${count})`;
+            const header = document.querySelector('.page-header h2');
+            if (header) header.textContent = `جميع الفئات (${count})`;
         }
 
         function escapeHtml(text) {
+            if (!text) return '';
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
@@ -100,15 +105,16 @@
             document.getElementById('catImage').value = '';
             document.getElementById('previewImg').src = '';
             currentEditId = null;
-            currentImageDataUrl = '';
+            currentImageUrl = '';
+            selectedFile = null;
             categoryModal.show();
         };
 
         window.openEditCategory = function(id, name, img) {
             currentEditId = id;
-            currentImageDataUrl = img || '';
+            currentImageUrl = img || '';
             document.getElementById('catModalTitle').textContent = 'تعديل الفئة';
-            document.getElementById('catName').value = name;
+            document.getElementById('catName').value = name || '';
 
             if (img && img.trim() !== '') {
                 document.getElementById('previewImg').src = img;
@@ -116,51 +122,60 @@
             } else {
                 document.getElementById('imagePreview').style.display = 'none';
             }
+            selectedFile = null;
             categoryModal.show();
         };
 
-        window.deleteCategory = async function(id) {
-            if (confirm('هل أنت متأكد من حذف هذه الفئة نهائيًا؟ لا يمكن التراجع!')) {
-                try {
-                    await deleteDoc(doc(db, "categories", id));
-                } catch (e) {
-                    alert("فشل الحذف: " + e.message);
+        window.deleteCategory = async function(id, imgUrl) {
+            if (!confirm('هل أنت متأكد من حذف هذه الفئة نهائيًا؟ لا يمكن التراجع!')) return;
+
+            try {
+                if (imgUrl && imgUrl.trim() !== '') {
+                    const imgRef = ref(storage, imgUrl);
+                    await deleteObject(imgRef).catch(() => {});
                 }
+                await deleteDoc(doc(db, "categories", id));
+            } catch (e) {
+                alert("فشل الحذف: " + e.message);
             }
         };
 
         window.saveCategory = async function() {
-            const nameInput = document.getElementById('catName');
-            const name = nameInput.value.trim();
+            const name = document.getElementById('catName').value.trim();
             if (!name) {
                 alert('اسم الفئة مطلوب');
-                nameInput.focus();
+                document.getElementById('catName').focus();
                 return;
             }
 
-            let imgDataUrl = currentImageDataUrl;
+            let imgUrl = currentImageUrl;
 
             const fileInput = document.getElementById('catImage');
             if (fileInput.files && fileInput.files[0]) {
-                const file = fileInput.files[0];
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    imgDataUrl = e.target.result;
-                    performSave(imgDataUrl);
-                };
-                reader.readAsDataURL(file);
-                return;
+                selectedFile = fileInput.files[0];
             }
 
-            performSave(imgDataUrl);
-        };
+            if (selectedFile) {
+                const fileName = `categories/${Date.now()}_${Math.random().toString(36).substring(2, 10)}_${selectedFile.name}`;
+                const storageRef = ref(storage, fileName);
 
-        async function performSave(imgDataUrl) {
-            const name = document.getElementById('catName').value.trim();
+                try {
+                    const snapshot = await uploadBytes(storageRef, selectedFile);
+                    imgUrl = await getDownloadURL(snapshot.ref);
+
+                    if (currentImageUrl && currentImageUrl !== imgUrl) {
+                        const oldImgRef = ref(storage, currentImageUrl);
+                        await deleteObject(oldImgRef).catch(() => {});
+                    }
+                } catch (e) {
+                alert("فشل رفع الصورة: " + e.message);
+                    return;
+                }
+            }
 
             const categoryData = {
                 name: name,
-                img: imgDataUrl || '',
+                img: imgUrl || ''
             };
 
             try {
@@ -173,25 +188,29 @@
             } catch (e) {
                 alert("حدث خطأ أثناء الحفظ: " + e.message);
             }
-        }
+        };
 
         window.removeCatImage = function() {
             document.getElementById('imagePreview').style.display = 'none';
             document.getElementById('catImage').value = '';
             document.getElementById('previewImg').src = '';
-            currentImageDataUrl = '';
+            selectedFile = null;
+            currentImageUrl = '';
         };
 
-        document.getElementById('dropZone').addEventListener('click', () => document.getElementById('catImage').click());
-        document.getElementById('catImage').addEventListener('change', e => {
-            if (e.target.files[0]) {
+        document.getElementById('dropZone').addEventListener('click', () => {
+            document.getElementById('catImage').click();
+        });
+
+        document.getElementById('catImage').addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                selectedFile = e.target.files[0];
                 const reader = new FileReader();
-                reader.onload = ev => {
+                reader.onload = (ev) => {
                     document.getElementById('previewImg').src = ev.target.result;
                     document.getElementById('imagePreview').style.display = 'block';
-                    currentImageDataUrl = ev.target.result;
                 };
-                reader.readAsDataURL(e.target.files[0]);
+                reader.readAsDataURL(selectedFile);
             }
         });
 
@@ -247,7 +266,7 @@
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h5 class="modal-title" id="catModalTitle">إضافة فئة جديدة</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="إغلاق"></button>
                             </div>
                             <div class="modal-body">
                                 <div class="form-group mb-3">
@@ -265,7 +284,7 @@
                                     </div>
                                     <div class="image-preview mt-3" id="imagePreview" style="display:none;text-align:center;position:relative;">
                                         <img id="previewImg" src="" alt="معاينة" style="max-width:200px;border-radius:8px;">
-                                        <button type="button" class="remove-img" onclick="removeCatImage()">×</button>
+                                        <button type="button" class="remove-img" onclick="removeCatImage()" style="position:absolute;top:5px;right:5px;background:red;color:white;width:25px;height:25px;border-radius:50%;border:none;font-size:16px;">×</button>
                                     </div>
                                 </div>
                             </div>

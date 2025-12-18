@@ -9,6 +9,70 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../style/style.css">
+
+    <style>
+        .badge-custom {
+            padding: 0.5em 1em;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .badge-custom.processing {
+            background-color: #dbeafe;
+            color: #6366f1;
+        }
+        .badge-custom.shipped {
+            background-color: #d1fae5;
+            color: #10b981;
+        }
+        .badge-custom.delivered {
+            background-color: #d1fae5;
+            color: #059669;
+        }
+        .badge-custom.cancelled {
+            background-color: #fee2e2;
+            color: #ef4444;
+        }
+        .status-select {
+            padding: 0.5em 1em;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            border: none;
+            min-width: 140px;
+        }
+        .status-select option[value="PROCESSING"] { background-color: #dbeafe; color: #6366f1; }
+        .status-select option[value="SHIPPED"] { background-color: #d1fae5; color: #10b981; }
+        .status-select option[value="DELIVERED"] { background-color: #d1fae5; color: #059669; }
+        .status-select option[value="CANCELLED"] { background-color: #fee2e2; color: #ef4444; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        .stat-card h4 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        .stat-card p {
+            margin: 0.5rem 0 0;
+            color: #6b7280;
+            font-size: 0.95rem;
+        }
+        .stat-card.processing h4 { color: #6366f1; }
+        .stat-card.shipped h4 { color: #10b981; }
+        .stat-card.delivered h4 { color: #059669; }
+        .stat-card.cancelled h4 { color: #ef4444; }
+    </style>
 </head>
 <body>
  
@@ -32,6 +96,26 @@
         
             <div id="orders" class="page active">
                 <div class="container-fluid">
+
+                    <div class="stats-grid">
+                        <div class="stat-card processing">
+                            <h4 id="statProcessing">0</h4>
+                            <p>قيد المعالجة</p>
+                        </div>
+                        <div class="stat-card shipped">
+                            <h4 id="statShipped">0</h4>
+                            <p>تم الشحن</p>
+                        </div>
+                        <div class="stat-card delivered">
+                            <h4 id="statDelivered">0</h4>
+                            <p>تم التسليم</p>
+                        </div>
+                        <div class="stat-card cancelled">
+                            <h4 id="statCancelled">0</h4>
+                            <p>ملغي</p>
+                        </div>
+                    </div>
+
                     <div class="d-flex justify-content-between align-items-center mb-4 page-header">
                         <h2 class="mb-0">جميع الطلبات (<span id="ordersCount">0</span>)</h2>
                     </div>
@@ -42,7 +126,6 @@
                                 <thead>
                                     <tr>
                                         <th><input type="checkbox" id="selectAllOrders"></th>
-                                        <th>رقم الطلب</th>
                                         <th>العميل</th>
                                         <th>رقم الموبايل</th>
                                         <th>التاريخ</th>
@@ -54,7 +137,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="ordersTableBody">
-                                    <tr><td colspan="10" class="text-center">جارِ تحميل الطلبات...</td></tr>
+                                    <tr><td colspan="9" class="text-center">جارِ تحميل الطلبات...</td></tr>
                                 </tbody>
                             </table>
                             <div id="noOrdersMessage" class="text-center p-3" style="display: none;">لا توجد طلبات حاليًا.</div>
@@ -62,12 +145,12 @@
                     </div>
                 </div>
 
-                <div class="modal modal-custom fade" id="orderModal" tabindex="-1">
+                <div class="modal modal-custom fade" id="orderModal" tabindex="-1" aria-labelledby="orderModalLabel" aria-hidden="true">
                     <div class="modal-dialog modal-lg">
                         <div class="modal-content">
                             <div class="modal-header">
-                                <h5 class="modal-title">تفاصيل الطلب - <span id="modalOrderId"></span></h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                <h5 class="modal-title" id="orderModalLabel">تفاصيل الطلب - <span id="modalOrderId"></span></h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
                                 <div class="row mb-4 order-summary">
@@ -95,11 +178,7 @@
                                                 <th>الإجمالي</th>
                                             </tr>
                                         </thead>
-                                        <tbody id="modalOrderItemsBody">
-                                            <tr>
-                                                <td colspan="4" class="text-center">لا توجد تفاصيل متاحة حاليًا.</td>
-                                            </tr>
-                                        </tbody>
+                                        <tbody id="modalOrderItemsBody"></tbody>
                                         <tfoot>
                                             <tr>
                                                 <td colspan="3" class="text-end"><strong>الإجمالي الفرعي</strong></td>
@@ -243,39 +322,38 @@
     const ordersTableBody = document.getElementById('ordersTableBody');
     const ordersCountElement = document.getElementById('ordersCount');
     const noOrdersMessage = document.getElementById('noOrdersMessage');
-    const orderModal = new bootstrap.Modal(document.getElementById('orderModal'));
+
+    const statProcessing = document.getElementById('statProcessing');
+    const statShipped = document.getElementById('statShipped');
+    const statDelivered = document.getElementById('statDelivered');
+    const statCancelled = document.getElementById('statCancelled');
 
     let allOrders = [];
     let usersMap = {};
     let currentOrderId = null;
 
-    function formatStatus(status) {
-        switch (status) {
-            case 'pending': return 'قيد الانتظار';
-            case 'PROCESSING': 
-            case 'processing': return 'قيد المعالجة';
-            case 'SHIPPED':
-            case 'shipped': return 'تم الشحن';
-            case 'DELIVERED':
-            case 'delivered': return 'تم التسليم';
-            case 'CANCELLED':
-            case 'canceled': return 'ملغي';
-            default: return status;
+    const orderModalEl = document.getElementById('orderModal');
+    const orderModal = new bootstrap.Modal(orderModalEl);
+
+    function getStatusClass(status) {
+        const lower = (status || '').toLowerCase();
+        switch (lower) {
+            case 'processing': return 'processing';
+            case 'shipped': return 'shipped';
+            case 'delivered': return 'delivered';
+            case 'cancelled':
+            case 'canceled': return 'cancelled';
+            default: return 'processing';
         }
     }
 
     function formatTime(timeStr) {
         if (!timeStr || timeStr === 'غير متوفر' || timeStr === 'null') return 'غير متوفر';
-
-        if (timeStr.toString().includes('PM') || timeStr.toString().includes('AM')) {
-            return timeStr;
-        }
-
+        if (timeStr.toString().includes('PM') || timeStr.toString().includes('AM')) return timeStr;
         const parts = timeStr.split(':');
         if (parts.length >= 2) {
             const hours = parseInt(parts[0]);
             const minutes = parseInt(parts[1]);
-
             if (!isNaN(hours)) {
                 let h = hours % 12;
                 h = h ? h : 12;
@@ -288,20 +366,20 @@
     }
 
     function createStatusSelect(orderId, currentStatus) {
-        const normalizedStatus = currentStatus ? currentStatus.toLowerCase() : 'processing';
-        const statuses = ['processing', 'shipped', 'delivered', 'cancelled'];
-        
-        let options = statuses.map(status => {
-            const label = formatStatus(status);
-            const selected = status === normalizedStatus ? 'selected' : '';
-            return `<option value="${status.toUpperCase()}" ${selected}>${label}</option>`;
+        const currentClass = getStatusClass(currentStatus);
+        const statuses = [
+            { value: 'PROCESSING', label: 'قيد المعالجة', cls: 'processing' },
+            { value: 'SHIPPED', label: 'تم الشحن', cls: 'shipped' },
+            { value: 'DELIVERED', label: 'تم التسليم', cls: 'delivered' },
+            { value: 'CANCELLED', label: 'ملغي', cls: 'cancelled' }
+        ];
+
+        let options = statuses.map(s => {
+            const selected = s.value.toLowerCase() === (currentStatus || '').toLowerCase() ? 'selected' : '';
+            return `<option value="${s.value}" ${selected}>${s.label}</option>`;
         }).join('');
 
-        return `<select class="status-select" onchange="updateOrderStatus('${orderId}', this.value)">${options}</select>`;
-    }
-
-    function getOrderNumber(order) {
-        return `#${order.id.slice(-8)}`;
+        return `<select class="status-select badge-custom ${currentClass}" onchange="updateOrderStatus('${orderId}', this.value)">${options}</select>`;
     }
 
     function getUserName(userId) {
@@ -316,10 +394,31 @@
         return usersMap[userId]?.email || 'غير متوفر';
     }
 
+    function updateStats(orders) {
+        const counts = {
+            processing: 0,
+            shipped: 0,
+            delivered: 0,
+            cancelled: 0
+        };
+
+        orders.forEach(order => {
+            const cls = getStatusClass(order.status);
+            if (counts[cls] !== undefined) counts[cls]++;
+        });
+
+        statProcessing.textContent = counts.processing;
+        statShipped.textContent = counts.shipped;
+        statDelivered.textContent = counts.delivered;
+        statCancelled.textContent = counts.cancelled;
+    }
+
     function renderOrdersTable(orders) {
         ordersTableBody.innerHTML = '';
         allOrders = orders;
         ordersCountElement.textContent = orders.length;
+
+        updateStats(orders);
 
         if (orders.length === 0) {
             ordersTableBody.innerHTML = '';
@@ -330,17 +429,12 @@
         noOrdersMessage.style.display = 'none';
 
         orders.forEach(order => {
-            const orderNumber = getOrderNumber(order);
-            
             const itemsList = order.items || order.state || [];
             const itemsCount = order.itemsCount || itemsList.length || 0;
-            
             const total = order.totalPrice || order.Total || 0;
-            
             const userId = order.userId || order.uId || order.uid || order.customerId;
             const userName = getUserName(userId) || order.userName || order.UserName || order.name || 'غير متوفر';
             const userPhone = getUserPhone(userId) || order.phone || 'غير متوفر';
-
             const orderDate = order.orderDate || 'غير متوفر';
             const rawTime = order.orderTime || 'غير متوفر';
             const orderTime = formatTime(rawTime);
@@ -348,7 +442,6 @@
             const row = `
                 <tr>
                     <td><input type="checkbox" class="row-check"></td>
-                    <td><strong>${orderNumber}</strong></td>
                     <td><strong>${userName}</strong></td>
                     <td>${userPhone}</td>
                     <td>${orderDate}</td>
@@ -370,10 +463,7 @@
             snapshot.docs.forEach(doc => {
                 usersMap[doc.id] = doc.data();
             });
-            
-            if (allOrders.length > 0) {
-                renderOrdersTable(allOrders);
-            }
+            if (allOrders.length > 0) renderOrdersTable(allOrders);
         });
     }
 
@@ -385,7 +475,7 @@
             }));
             renderOrdersTable(ordersList);
         }, (error) => {
-            ordersTableBody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">خطأ في الاتصال بقاعدة البيانات.</td></tr>`;
+            ordersTableBody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">خطأ في الاتصال بقاعدة البيانات.</td></tr>`;
             noOrdersMessage.style.display = 'none';
         });
     }
@@ -403,10 +493,8 @@
     window.updateOrderStatus = async (orderId, newStatus) => {
         try {
             const orderRef = doc(db, 'orders', orderId);
-            await updateDoc(orderRef, {
-                status: newStatus
-            });
-            alert(`تم تحديث حالة الطلب إلى: ${formatStatus(newStatus)}`);
+            await updateDoc(orderRef, { status: newStatus });
+            alert(`تم تحديث حالة الطلب بنجاح`);
         } catch (error) {
             alert("حدث خطأ أثناء تحديث حالة الطلب.");
         }
@@ -428,40 +516,33 @@
 
     window.openOrderModal = (orderId) => {
         const order = allOrders.find(o => o.id === orderId);
-
         if (!order) {
             alert('لم يتم العثور على تفاصيل الطلب.');
             return;
         }
 
         currentOrderId = orderId;
-
         const userId = order.userId || order.uId || order.uid || order.customerId;
-        
-        document.getElementById('modalOrderId').textContent = getOrderNumber(order);
-        
+
+        document.getElementById('modalOrderId').textContent = `#${order.id.slice(-8)}`;
         document.getElementById('modalCustomerName').textContent = getUserName(userId) || order.userName || order.UserName || order.name || 'غير متوفر';
         document.getElementById('modalCustomerEmail').textContent = getUserEmail(userId) || order.email || 'غير متوفر';
         document.getElementById('modalCustomerPhone').textContent = getUserPhone(userId) || order.phone || 'غير متوفر';
-        
-        const shippingAddress = usersMap[userId]?.location || 'غير متوفر';
-        document.getElementById('modalShippingAddress').textContent = shippingAddress;
+        document.getElementById('modalShippingAddress').textContent = usersMap[userId]?.location || 'غير متوفر';
 
         const items = order.items || order.state || [];
-        
         const itemsBody = document.getElementById('modalOrderItemsBody');
         itemsBody.innerHTML = '';
-        
+
         if (items.length > 0) {
             let runningSubtotal = 0;
             items.forEach(item => {
                 const quantity = item.count || item.Count || 1;
                 const price = item.price || item.Total || 0;
                 const itemName = item.name || 'منتج غير معروف';
-                
                 const itemTotal = quantity * price;
                 runningSubtotal += itemTotal;
-                
+
                 const row = `
                     <tr>
                         <td>${itemName}</td>
@@ -472,12 +553,10 @@
                 `;
                 itemsBody.insertAdjacentHTML('beforeend', row);
             });
-            
-            const finalTotal = order.totalPrice || runningSubtotal;
 
+            const finalTotal = order.totalPrice || runningSubtotal;
             document.getElementById('modalSubtotal').textContent = `${Number(finalTotal).toFixed(2)} ج.م`;
             document.getElementById('modalTotal').textContent = `${Number(finalTotal).toFixed(2)} ج.م`;
-        
         } else {
             itemsBody.innerHTML = '<tr><td colspan="4" class="text-center">لا توجد عناصر مفصلة لهذا الطلب.</td></tr>';
             const total = order.totalPrice || order.Total || 0;
@@ -486,7 +565,6 @@
         }
 
         document.getElementById('deleteOrderBtn').onclick = deleteCurrentOrder;
-
         orderModal.show();
     };
 </script>

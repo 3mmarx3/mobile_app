@@ -10,6 +10,35 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./assets/style/style.css">
 
+    <style>
+        .badge-custom {
+            padding: 0.5em 1em;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .badge-custom.pending {
+            background-color: #fef3c7;
+            color: #f59e0b;
+        }
+        .badge-custom.processing {
+            background-color: #dbeafe;
+            color: #6366f1;
+        }
+        .badge-custom.shipped {
+            background-color: #d1fae5;
+            color: #10b981;
+        }
+        .badge-custom.delivered {
+            background-color: #d1fae5;
+            color: #059669;
+        }
+        .badge-custom.cancelled {
+            background-color: #fee2e2;
+            color: #ef4444;
+        }
+    </style>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
@@ -52,11 +81,24 @@
 
         function formatTime(timeStr) {
             if (!timeStr || timeStr === 'غير محدد') return 'غير محدد';
-            const [hours, minutes, seconds] = timeStr.split(':').map(Number);
+            const [hours, minutes] = timeStr.split(':').map(Number);
             let h = hours % 12;
             h = h ? h : 12;
             const ampm = hours >= 12 ? 'PM' : 'AM';
             return `${h}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+        }
+
+        function formatStatus(status) {
+            const lower = (status || '').toLowerCase();
+            switch (lower) {
+                case 'pending': return { text: 'قيد الانتظار', class: 'pending' };
+                case 'processing': return { text: 'قيد المعالجة', class: 'processing' };
+                case 'shipped': return { text: 'تم الشحن', class: 'shipped' };
+                case 'delivered': return { text: 'تم التسليم', class: 'delivered' };
+                case 'cancelled':
+                case 'canceled': return { text: 'ملغي', class: 'cancelled' };
+                default: return { text: 'قيد الانتظار', class: 'pending' };
+            }
         }
 
         function loadDashboardData() {
@@ -89,20 +131,22 @@
                     const order = doc.data();
                     order.id = doc.id;
 
-                    const statusLower = (order.status || '').toLowerCase();
+                    const statusInfo = formatStatus(order.status);
+                    order.statusText = statusInfo.text;
+                    order.statusClass = statusInfo.class;
 
-                    if (statusLower === 'pending' || statusLower === 'processing') {
+                    if (order.statusClass === 'pending' || order.statusClass === 'processing') {
                         pendingCount++;
                     }
 
                     const orderTotal = order.totalPrice || order.total || 0;
 
                     const orderDateStr = order.orderDate || (order.date ? order.date.split(' ')[0] : todayStr);
-                    if (orderDateStr === todayStr && statusLower === 'delivered') {
+                    if (orderDateStr === todayStr && order.statusClass === 'delivered') {
                         todaySales += orderTotal;
                     }
 
-                    if (statusLower === 'delivered') {
+                    if (order.statusClass === 'delivered') {
                         totalSales += orderTotal;
                     }
 
@@ -149,19 +193,12 @@
 
                     recentTbody.innerHTML = '';
                     if (latestFive.length === 0) {
-                        recentTbody.innerHTML = '<tr><td colspan="7" class="text-center">لا توجد طلبات بعد</td></tr>';
+                        recentTbody.innerHTML = '<tr><td colspan="8" class="text-center">لا توجد طلبات بعد</td></tr>';
                     } else {
                         latestFive.forEach((order) => {
                             const userId = order.userId;
                             const customerName = userNames[userId] || order.customerName || order.name || 'غير محدد';
                             const customerPhone = userPhones[userId] || 'غير محدد';
-
-                            const statusLower = (order.status || '').toLowerCase();
-                            const statusText = statusLower === 'delivered' ? 'تم التسليم' :
-                                              statusLower === 'shipped' ? 'تم الشحن' :
-                                              statusLower === 'processing' ? 'قيد المعالجة' : 'قيد الانتظار';
-                            const statusClass = statusLower === 'delivered' ? 'delivered' :
-                                               statusLower === 'shipped' ? 'shipped' : 'pending';
 
                             const orderDate = order.orderDate || (order.date ? order.date.split(' ')[0] : 'غير محدد');
                             const rawTime = order.orderTime || (order.date ? order.date.split(' ')[1] : 'غير محدد');
@@ -175,7 +212,7 @@
                                     <td>${customerPhone}</td>
                                     <td>${orderDate}</td>
                                     <td>${orderTime}</td>
-                                    <td><span class="badge badge-custom ${statusClass}">${statusText}</span></td>
+                                    <td><span class="badge badge-custom ${order.statusClass}">${order.statusText}</span></td>
                                     <td>${(order.totalPrice || order.total || 0).toLocaleString()} ج.م</td>
                                 </tr>
                             `;
@@ -211,14 +248,9 @@
         <a href="./assets/page/Users.html">
             <i class="fas fa-users"></i> المستخدمين
         </a>
-
-
-         <a href="./assets/page/contact.html">
-          <i class="fas fa-envelope"></i>        تواصل معنا
+        <a href="./assets/page/contact.html">
+          <i class="fas fa-envelope"></i> تواصل معنا
         </a>
-
-        
-
         
         <hr style="margin: 2rem 1.5rem; border-color: #334155" />
         

@@ -12,6 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
 
   <style>
+    /* CSS styles remain the same as before */
     body {
       font-family: "Cairo", sans-serif;
       display: block;
@@ -113,6 +114,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
     import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+    import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-storage.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyDlKhp5gKE6l5BFBOBcLv6JZB3xIOnwqDo",
@@ -126,14 +128,17 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
+    const storage = getStorage(app);
 
     let userIsAuthenticated = false;
+    let currentUser = null;
 
     onAuthStateChanged(auth, (user) => {
         if (!user) {
             window.location.href = "/auth/login.html"; 
         } else {
             userIsAuthenticated = true;
+            currentUser = user;
             loadCategories();
         }
     });
@@ -156,17 +161,10 @@
         }
     }
 
-    const fileToBase64 = file => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = error => reject(error);
-    });
-
     window.saveProduct = async function(e) {
         e.preventDefault();
         
-        if (!userIsAuthenticated) {
+        if (!userIsAuthenticated || !currentUser) {
             alert("يجب عليك تسجيل الدخول أولاً للمتابعة.");
             return;
         }
@@ -189,9 +187,16 @@
                  throw new Error("يرجى ملء جميع الحقول المطلوبة بشكل صحيح.");
             }
 
-            let img = "";
+            let imgUrl = "";
+            
             if (fileInput.files.length > 0) {
-                img = await fileToBase64(fileInput.files[0]);
+                const file = fileInput.files[0];
+                
+                if (file.size > 5 * 1024 * 1024) {
+                    throw new Error("حجم الصورة يجب أن يكون أقل من 5 ميجابايت");
+                }
+                
+                imgUrl = await uploadImageToStorage(file, currentUser.uid);
             }
 
             const productData = {
@@ -201,29 +206,69 @@
                 pieces: pieces,
                 stock: stock,
                 description: description,
-                img: img,
-                count: stock, 
+                img: imgUrl,
+                count: stock,
                 id: Math.floor(Math.random() * 100000) + 1,
+                createdAt: new Date().toISOString(),
+                createdBy: currentUser.uid
             };
 
             await addDoc(collection(db, "products"), productData);
 
-            alert("تمت إضافة المنتج بنجاح! 🎉");
+            alert("✅ تمت إضافة المنتج بنجاح!");
             document.getElementById('addProductForm').reset();
             document.getElementById('imagePreview').innerHTML = '';
 
         } catch (error) {
             console.error("Error adding product: ", error);
             let errorMessage = "حدث خطأ أثناء الحفظ. ";
-            if (error.message && error.message.includes("PERMISSION_DENIED")) {
-                errorMessage += "ليس لديك صلاحية لإضافة منتجات. تأكد أن حسابك admin.";
+            
+            if (error.message && error.message.includes("storage/unauthorized")) {
+                errorMessage += "ليس لديك صلاحية لرفع الصور. تأكد من قواعد الأمان في Firebase Storage.";
+            } else if (error.message && error.message.includes("storage/retry-limit-exceeded")) {
+                errorMessage += "تعذر رفع الصورة. تحقق من اتصالك بالإنترنت.";
             } else {
                 errorMessage += error.message || "";
             }
+            
             alert(errorMessage);
         } finally {
             btn.innerHTML = originalBtnText;
             btn.classList.remove('loading');
+        }
+    }
+
+    async function uploadImageToStorage(file, userId) {
+        try {
+            // إنشاء اسم فريد للملف
+            const timestamp = Date.now();
+            const randomString = Math.random().toString(36).substring(2, 8);
+            const fileName = `${timestamp}_${randomString}_${file.name.replace(/\s/g, '_')}`;
+            
+            // إنشاء مسار في Storage
+            const storageRef = ref(storage, `products/${fileName}`);
+            
+            const metadata = {
+                contentType: file.type,
+                customMetadata: {
+                    uploadedBy: userId,
+                    uploadedAt: new Date().toISOString(),
+                    productName: document.getElementById('productName').value.trim() || 'غير معروف'
+                }
+            };
+            
+            // رفع الملف
+            const snapshot = await uploadBytes(storageRef, file, metadata);
+            
+            // الحصول على رابط التنزيل
+            const downloadURL = await getDownloadURL(snapshot.ref);
+            
+            console.log("✅ تم رفع الصورة بنجاح:", downloadURL);
+            return downloadURL;
+            
+        } catch (error) {
+            console.error("❌ خطأ في رفع الصورة:", error);
+            throw error;
         }
     }
   </script>

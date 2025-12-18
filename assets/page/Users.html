@@ -26,6 +26,7 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+
         const userModal = new bootstrap.Modal(document.getElementById('userModal'));
         let currentUserData = {};
         let loggedInUserId = null;
@@ -48,11 +49,9 @@
 
         function formatTime(timeStr) {
             if (!timeStr) return 'غير متوفر';
-            
             if (timeStr.toString().includes('PM') || timeStr.toString().includes('AM')) {
                 return timeStr;
             }
-
             const parts = timeStr.split(':');
             if (parts.length >= 2) {
                 const hours = parseInt(parts[0]);
@@ -71,8 +70,7 @@
         function createTableRow(u, key) {
             const statusText = u.state ? 'نشط' : 'غير نشط';
             const statusClass = u.state ? 'active' : 'inactive';
-            const userPhoto = u.photo || u.img || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'User')}&background=${u.state ? '6366f1' : 'ef4444'}&color=fff`;
-
+            const userPhoto = u.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'User')}&background=${u.state ? '6366f1' : 'ef4444'}&color=fff`;
             return `
                 <tr>
                     <td>
@@ -85,6 +83,11 @@
                     <td>${u.joinDate || '-'}</td>
                     <td dir="ltr">${u.joinTime ? formatTime(u.joinTime) : '-'}</td>
                     <td>${u.ordersCount || 0}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="openPlaceImageModal('${userPhoto}')">
+                            <i class="fas fa-image"></i> عرض الصورة
+                        </button>
+                    </td>
                     <td><span class="badge badge-custom ${statusClass}">${statusText}</span></td>
                     <td>
                         <div class="d-flex align-items-center gap-2">
@@ -106,15 +109,13 @@
 
         function loadUsers() {
             const tbodyClients = document.querySelector('#usersTableClients tbody');
-            tbodyClients.innerHTML = '<tr><td colspan="7" class="text-center">جاري تحميل البيانات...</td></tr>';
-
+            tbodyClients.innerHTML = '<tr><td colspan="8" class="text-center">جاري تحميل البيانات...</td></tr>';
             const usersRef = collection(db, "users");
             onSnapshot(usersRef, (snapshot) => {
                 tbodyClients.innerHTML = '';
                 let clientCount = 0;
-
                 if (snapshot.size === 0) {
-                    tbodyClients.innerHTML = '<tr><td colspan="7" class="text-center">لا يوجد عملاء</td></tr>';
+                    tbodyClients.innerHTML = '<tr><td colspan="8" class="text-center">لا يوجد عملاء</td></tr>';
                 } else {
                     snapshot.forEach((doc) => {
                         const u = doc.data();
@@ -127,13 +128,12 @@
                         }
                     });
                 }
-
                 if (clientCount === 0) {
-                    tbodyClients.innerHTML = '<tr><td colspan="7" class="text-center">لا يوجد عملاء</td></tr>';
+                    tbodyClients.innerHTML = '<tr><td colspan="8" class="text-center">لا يوجد عملاء</td></tr>';
                 }
                 document.getElementById('client-count').textContent = `(${clientCount})`;
             }, (error) => {
-                tbodyClients.innerHTML = `<tr><td colspan="7" class="text-center text-danger">خطأ: ${error.message}</td></tr>`;
+                tbodyClients.innerHTML = `<tr><td colspan="8" class="text-center text-danger">خطأ: ${error.message}</td></tr>`;
             });
         }
 
@@ -161,12 +161,10 @@
         window.openUserModal = function(key) {
             const u = currentUserData[key];
             if (!u) return;
-
             const statusText = u.state ? 'نشط' : 'غير نشط';
             const statusClass = u.state ? 'active' : 'inactive';
             const buttonText = u.state ? 'تعطيل/حظر' : 'تفعيل العميل';
-            const userPhoto = u.photo || u.img || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'User')}&background=${u.state ? '6366f1' : 'ef4444'}&color=fff`;
-
+            const userPhoto = u.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'User')}&background=${u.state ? '6366f1' : 'ef4444'}&color=fff`;
             document.getElementById('modalAvatar').src = userPhoto;
             document.getElementById('modalName').textContent = u.name || 'غير محدد';
             document.getElementById('modalPhone').textContent = u.phone || '-';
@@ -176,17 +174,14 @@
             document.getElementById('modalDate').textContent = u.joinDate || '-';
             document.getElementById('modalTime').textContent = u.joinTime ? formatTime(u.joinTime) : '-';
             document.getElementById('modalOrdersCount').textContent = u.ordersCount || 0;
-
             const statusEl = document.getElementById('modalStatus');
             statusEl.textContent = statusText;
             statusEl.className = 'badge badge-custom ' + statusClass;
-
             const actionBtn = document.getElementById('userActionButton');
             actionBtn.style.display = 'inline-block';
             actionBtn.textContent = buttonText;
             actionBtn.className = `btn btn-custom ${u.state ? 'btn-danger' : 'btn-success'}`;
             actionBtn.onclick = () => toggleUserFromModal(key, !u.state, buttonText);
-
             userModal.show();
         };
 
@@ -200,6 +195,11 @@
                     alert("فشل الإجراء: " + e.message);
                 }
             }
+        };
+
+        window.openPlaceImageModal = function(imageUrl) {
+            document.getElementById('placeImageModalImg').src = imageUrl;
+            new bootstrap.Modal(document.getElementById('placeImageModal')).show();
         };
 
         document.getElementById('mobileMenuBtn')?.addEventListener('click', () => {
@@ -237,6 +237,7 @@
                                         <th>التاريخ</th>
                                         <th>الوقت</th>
                                         <th>عدد الطلبات</th>
+                                        <th>صورة المكان</th>
                                         <th>الحالة</th>
                                         <th>الإجراءات</th>
                                     </tr>
@@ -273,6 +274,20 @@
                                 <div class="d-flex justify-content-center gap-2">
                                     <button id="userActionButton" class="btn btn-custom"></button>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal fade" id="placeImageModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">صورة المكان</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body text-center">
+                                <img id="placeImageModalImg" src="" class="img-fluid rounded" style="max-height:80vh;">
                             </div>
                         </div>
                     </div>
