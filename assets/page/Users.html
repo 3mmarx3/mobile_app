@@ -12,6 +12,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-firestore.js";
+        import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.14.0/firebase-storage.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDlKhp5gKE6l5BFBOBcLv6JZB3xIOnwqDo",
@@ -26,17 +27,16 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        const storage = getStorage(app);
 
         const userModal = new bootstrap.Modal(document.getElementById('userModal'));
         let currentUserData = {};
-        let loggedInUserId = null;
 
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
                 window.location.href = "/auth/login.html";
                 return;
             }
-            loggedInUserId = user.uid;
             const userRef = doc(db, "users", user.uid);
             const userSnap = await getDoc(userRef);
             if (!userSnap.exists() || userSnap.data().role !== 'admin') {
@@ -49,9 +49,7 @@
 
         function formatTime(timeStr) {
             if (!timeStr) return 'غير متوفر';
-            if (timeStr.toString().includes('PM') || timeStr.toString().includes('AM')) {
-                return timeStr;
-            }
+            if (timeStr.toString().includes('PM') || timeStr.toString().includes('AM')) return timeStr;
             const parts = timeStr.split(':');
             if (parts.length >= 2) {
                 const hours = parseInt(parts[0]);
@@ -67,10 +65,50 @@
             return timeStr;
         }
 
-        function createTableRow(u, key) {
+        async function extractFileNameFromUrl(url) {
+            if (!url) return null;
+            try {
+                const urlObj = new URL(url);
+                const pathname = decodeURIComponent(urlObj.pathname);
+                const matches = pathname.match(/place_images%2F([^?]+)/);
+                if (matches && matches[1]) {
+                    return matches[1];
+                }
+                return null;
+            } catch (error) {
+                console.error('خطأ في استخراج اسم الملف:', error);
+                return null;
+            }
+        }
+
+        async function getPlaceImageUrl(u) {
+            let imageUrl = u.image || u.placeImage;
+            if (!imageUrl || imageUrl.trim() === '') {
+                return "https://ui-avatars.com/api/?name=المكان&background=6366f1&color=fff&size=500";
+            }
+            
+            if (imageUrl.startsWith('https://')) {
+                return imageUrl;
+            }
+            
+            try {
+                const fileName = await extractFileNameFromUrl(imageUrl) || imageUrl;
+                const pathReference = ref(storage, `place_images/${fileName}`);
+                const url = await getDownloadURL(pathReference);
+                return url;
+            } catch (error) {
+                console.error("خطأ في تحميل الصورة:", error);
+                return imageUrl.startsWith('https://') ? imageUrl : "https://ui-avatars.com/api/?name=غير+متوفر&background=ef4444&color=fff&size=500";
+            }
+        }
+
+        async function createTableRow(u, key) {
             const statusText = u.state ? 'نشط' : 'غير نشط';
             const statusClass = u.state ? 'active' : 'inactive';
             const userPhoto = u.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'User')}&background=${u.state ? '6366f1' : 'ef4444'}&color=fff`;
+            
+            const placeImageUrl = await getPlaceImageUrl(u);
+
             return `
                 <tr>
                     <td>
@@ -84,7 +122,7 @@
                     <td dir="ltr">${u.joinTime ? formatTime(u.joinTime) : '-'}</td>
                     <td>${u.ordersCount || 0}</td>
                     <td>
-                        <button class="btn btn-sm btn-primary" onclick="openPlaceImageModal('${userPhoto}')">
+                        <button class="btn btn-sm btn-primary" onclick="openPlaceImageModal('${placeImageUrl.replace(/'/g, "\\'")}')">
                             <i class="fas fa-image"></i> عرض الصورة
                         </button>
                     </td>
@@ -107,30 +145,25 @@
             `;
         }
 
-        function loadUsers() {
+        async function loadUsers() {
             const tbodyClients = document.querySelector('#usersTableClients tbody');
             tbodyClients.innerHTML = '<tr><td colspan="8" class="text-center">جاري تحميل البيانات...</td></tr>';
             const usersRef = collection(db, "users");
-            onSnapshot(usersRef, (snapshot) => {
+            onSnapshot(usersRef, async (snapshot) => {
                 tbodyClients.innerHTML = '';
                 let clientCount = 0;
-                if (snapshot.size === 0) {
-                    tbodyClients.innerHTML = '<tr><td colspan="8" class="text-center">لا يوجد عملاء</td></tr>';
-                } else {
-                    snapshot.forEach((doc) => {
-                        const u = doc.data();
-                        const key = doc.id;
-                        if (u.role !== 'admin') {
-                            currentUserData[key] = u;
-                            const rowHTML = createTableRow(u, key);
-                            tbodyClients.insertAdjacentHTML('beforeend', rowHTML);
-                            clientCount++;
-                        }
-                    });
+                const rows = [];
+                for (const docSnap of snapshot.docs) {
+                    const u = docSnap.data();
+                    const key = docSnap.id;
+                    if (u.role !== 'admin') {
+                        currentUserData[key] = u;
+                        const rowHTML = await createTableRow(u, key);
+                        rows.push(rowHTML);
+                        clientCount++;
+                    }
                 }
-                if (clientCount === 0) {
-                    tbodyClients.innerHTML = '<tr><td colspan="8" class="text-center">لا يوجد عملاء</td></tr>';
-                }
+                tbodyClients.innerHTML = rows.length > 0 ? rows.join('') : '<tr><td colspan="8" class="text-center">لا يوجد عملاء</td></tr>';
                 document.getElementById('client-count').textContent = `(${clientCount})`;
             }, (error) => {
                 tbodyClients.innerHTML = `<tr><td colspan="8" class="text-center text-danger">خطأ: ${error.message}</td></tr>`;
@@ -158,13 +191,16 @@
             }
         };
 
-        window.openUserModal = function(key) {
+        window.openUserModal = async function(key) {
             const u = currentUserData[key];
             if (!u) return;
             const statusText = u.state ? 'نشط' : 'غير نشط';
             const statusClass = u.state ? 'active' : 'inactive';
             const buttonText = u.state ? 'تعطيل/حظر' : 'تفعيل العميل';
             const userPhoto = u.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'User')}&background=${u.state ? '6366f1' : 'ef4444'}&color=fff`;
+            
+            const placeImageUrl = await getPlaceImageUrl(u);
+
             document.getElementById('modalAvatar').src = userPhoto;
             document.getElementById('modalName').textContent = u.name || 'غير محدد';
             document.getElementById('modalPhone').textContent = u.phone || '-';
@@ -182,6 +218,7 @@
             actionBtn.textContent = buttonText;
             actionBtn.className = `btn btn-custom ${u.state ? 'btn-danger' : 'btn-success'}`;
             actionBtn.onclick = () => toggleUserFromModal(key, !u.state, buttonText);
+            document.getElementById('placeImageModalImg').src = placeImageUrl;
             userModal.show();
         };
 
